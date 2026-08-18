@@ -1,6 +1,6 @@
-// Neon Auth Integration Service for NuFey
-
-export const NEON_AUTH_BASE_URL = 'https://ep-muddy-cloud-ach02trc.neonauth.sa-east-1.aws.neon.tech/neondb/auth';
+export const NEON_AUTH_BASE_URL =
+  import.meta.env.VITE_NEON_AUTH_URL ||
+  'https://ep-muddy-cloud-ach02trc.neonauth.sa-east-1.aws.neon.tech/neondb/auth';
 
 export interface UserProfile {
   id: string;
