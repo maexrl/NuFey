@@ -99,10 +99,10 @@ export const Dashboard: React.FC = () => {
               {/* Card 1 — Total de pacientes ativos */}
               <div className="dashboard-metric-card" id="card-total-pacientes">
                 <div className="metric-header">
-                  <div className="stat-icon-box stat-red">
+                  <div className="stat-icon-box stat-green">
                     <Users className="w-6 h-6" />
                   </div>
-                  <span className="metric-badge-tag badge-red">Ativos</span>
+                  <span className="metric-badge-tag badge-green">Ativos</span>
                 </div>
                 <div className="metric-body">
                   <div className="metric-number">
@@ -118,10 +118,10 @@ export const Dashboard: React.FC = () => {
               {/* Card 2 — Consultas da semana */}
               <div className="dashboard-metric-card" id="card-consultas-semana">
                 <div className="metric-header">
-                  <div className="stat-icon-box stat-yellow">
+                  <div className="stat-icon-box stat-blue">
                     <Calendar className="w-6 h-6" />
                   </div>
-                  <span className="metric-badge-tag badge-yellow">Esta semana</span>
+                  <span className="metric-badge-tag badge-blue">Esta semana</span>
                 </div>
                 <div className="metric-body">
                   <div className="metric-number">
@@ -138,7 +138,7 @@ export const Dashboard: React.FC = () => {
               <div className="dashboard-metric-card card-full-width" id="card-pacientes-sem-retorno">
                 <div className="metric-header" style={{ marginBottom: '1.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                    <div className="stat-icon-box stat-orange">
+                    <div className="stat-icon-box stat-cyan">
                       <AlertTriangle className="w-6 h-6" />
                     </div>
                     <div>
@@ -149,7 +149,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   {metrics.pacientesSemRetorno.length > 0 && (
-                    <span className="metric-badge-tag badge-orange">
+                    <span className="metric-badge-tag badge-cyan">
                       {metrics.pacientesSemRetorno.length} Requer Atenção
                     </span>
                   )}
