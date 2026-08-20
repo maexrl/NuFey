@@ -130,8 +130,8 @@ export function seedInitialDataIfEmpty(nutricionistaId: string): { pacientes: Pa
       {
         id: p1Id,
         nutricionista_id: nutricionistaId,
-        nome: 'Ismael Avelino',
-        email: 'ismael.avelino@email.com',
+        nome: 'Gabriel Santos',
+        email: 'gabriel.santos@email.com',
         whatsapp: '(11) 98765-4321',
         peso_inicial: 78.5,
         altura: 1.75,

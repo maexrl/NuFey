@@ -27,7 +27,7 @@
   --border-color-focus: #10B981;
 
   --text-main: #FFFFFF;
-  --text-muted: #94A3B8;
+  --text-muted: #A3B3C2;
   --text-dim: #64748B;
   
   --shadow-fiery: 0 12px 32px -8px rgba(16, 185, 129, 0.4);
@@ -680,6 +680,12 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+.stat-amber {
+  background: rgba(255, 176, 32, 0.15);
+  color: #FFB020;
+  border: 1px solid rgba(255, 176, 32, 0.35);
+}
+
 .stat-orange, .stat-cyan {
   background: rgba(255, 255, 255, 0.12);
   color: #FFFFFF;
@@ -693,6 +699,12 @@ body {
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.badge-amber {
+  background: rgba(255, 176, 32, 0.15);
+  color: #FFB020;
+  border: 1px solid rgba(255, 176, 32, 0.35);
 }
 
 .badge-red, .badge-green {
@@ -711,6 +723,28 @@ body {
   background: rgba(255, 255, 255, 0.15);
   color: #FFFFFF;
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: rgba(37, 211, 102, 0.15);
+  color: #25D366;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-whatsapp:hover {
+  background: rgba(37, 211, 102, 0.3);
+  color: #FFFFFF;
+  border-color: #25D366;
+  transform: translateY(-1px);
 }
 
 .metric-number {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, AlertTriangle, ChevronRight, UserX, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, ChevronRight, UserX, RefreshCw, CheckCircle2, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar } from './Sidebar';
 import { PacientesView } from './PacientesView';
@@ -73,10 +73,10 @@ export const Dashboard: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4" /> Dados sincronizados via Neon DB
                 </div>
                 <h1 className="welcome-title">
-                  Olá, {user?.name?.split(' ')[0] || 'Nutricionista'}! ⚡
+                  Olá, {user?.name?.split(' ')[0] || 'Nutricionista'}! ✨
                 </h1>
                 <p className="welcome-subtitle">
-                  Aqui está o resumo em tempo real do seu consultório de nutrição.
+                  Seu consultório está sincronizado. Veja o resumo de hoje:
                 </p>
               </div>
 
@@ -110,7 +110,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="metric-title">Total de pacientes ativos</div>
                   <p className="metric-description">
-                    Pacientes cadastrados pela nutricionista logada ({user?.email})
+                    Pacientes com plano alimentar ou acompanhamento vigente este mês.
                   </p>
                 </div>
               </div>
@@ -129,7 +129,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="metric-title">Consultas da semana</div>
                   <p className="metric-description">
-                    Consultas registradas de Segunda a Domingo da semana atual
+                    Agendamentos confirmados de segunda a domingo.
                   </p>
                 </div>
               </div>
@@ -138,18 +138,18 @@ export const Dashboard: React.FC = () => {
               <div className="dashboard-metric-card card-full-width" id="card-pacientes-sem-retorno">
                 <div className="metric-header" style={{ marginBottom: '1.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                    <div className="stat-icon-box stat-cyan">
+                    <div className="stat-icon-box stat-amber">
                       <AlertTriangle className="w-6 h-6" />
                     </div>
                     <div>
                       <h3 className="card-heading-title">Pacientes sem retorno</h3>
                       <p className="card-heading-sub">
-                        Última consulta há mais de 30 dias e sem próximo retorno agendado
+                        Alerta de Abandono: Pacientes há mais de 30 dias sem nova consulta marcada. Que tal enviar uma mensagem de acompanhamento?
                       </p>
                     </div>
                   </div>
                   {metrics.pacientesSemRetorno.length > 0 && (
-                    <span className="metric-badge-tag badge-cyan">
+                    <span className="metric-badge-tag badge-amber">
                       {metrics.pacientesSemRetorno.length} Requer Atenção
                     </span>
                   )}
@@ -191,9 +191,25 @@ export const Dashboard: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="item-action">
-                            <span className="action-tag">Ver Perfil</span>
-                            <ChevronRight className="w-4 h-4" />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            {item.paciente.whatsapp && (
+                              <a
+                                href={`https://wa.me/55${item.paciente.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${item.paciente.nome.split(' ')[0]}! Tudo bem? Passando para acompanhar seus resultados e agendar sua próxima consulta.`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn-whatsapp"
+                                onClick={(e) => e.stopPropagation()}
+                                title={`Enviar mensagem no WhatsApp para ${item.paciente.nome}`}
+                                id={`btn-whatsapp-${item.paciente.id}`}
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                                <span>Enviar WhatsApp</span>
+                              </a>
+                            )}
+                            <div className="item-action">
+                              <span className="action-tag">Ver Perfil</span>
+                              <ChevronRight className="w-4 h-4" />
+                            </div>
                           </div>
                         </div>
                       ))}
