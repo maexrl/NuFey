@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   User,
@@ -58,11 +58,35 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
 }) => {
   const { user } = useAuth();
 
+  // Navegação principal e secundária
   const [activeTab, setActiveTab] = useState<'dados' | 'consultas' | 'planos'>('dados');
   const [dadosTab, setDadosTab] = useState<'pessoal' | 'clinico' | 'habitos'>('pessoal');
 
-  // Paciente edit state
-  const [formData, setFormData] = useState<Partial<Paciente>>({});
+  // Estados de texto para edição dos dados do paciente (evita bugs de espaço e caracteres)
+  const [nomeTexto, setNomeTexto] = useState('');
+  const [dataNascTexto, setDataNascTexto] = useState('');
+  const [sexoTexto, setSexoTexto] = useState('Feminino');
+  const [whatsappTexto, setWhatsappTexto] = useState('');
+  const [emailTexto, setEmailTexto] = useState('');
+
+  const [pesoTexto, setPesoTexto] = useState('');
+  const [alturaTexto, setAlturaTexto] = useState('');
+  const [nivelAtividadeTexto, setNivelAtividadeTexto] = useState('Moderadamente ativo');
+  const [objetivosTexto, setObjetivosTexto] = useState('');
+  const [patologiasTexto, setPatologiasTexto] = useState('');
+  const [alergiasTexto, setAlergiasTexto] = useState('');
+  const [restricoesTexto, setRestricoesTexto] = useState('');
+  const [medicamentosTexto, setMedicamentosTexto] = useState('');
+  const [suplementosTexto, setSuplementosTexto] = useState('');
+
+  const [refeicoesPorDiaTexto, setRefeicoesPorDiaTexto] = useState('4');
+  const [horarioAcordaTexto, setHorarioAcordaTexto] = useState('06:00');
+  const [horarioDormeTexto, setHorarioDormeTexto] = useState('22:00');
+  const [litrosAguaTexto, setLitrosAguaTexto] = useState('2');
+  const [atividadeFisicaCheck, setAtividadeFisicaCheck] = useState(false);
+  const [atividadeFisicaDescTexto, setAtividadeFisicaDescTexto] = useState('');
+  const [observacoesTexto, setObservacoesTexto] = useState('');
+
   const [savingPaciente, setSavingPaciente] = useState(false);
   const [pacienteSuccessMsg, setPacienteSuccessMsg] = useState('');
 
@@ -97,7 +121,10 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
   const [planoSuccessMsg, setPlanoSuccessMsg] = useState('');
   const [planoErrorMsg, setPlanoErrorMsg] = useState('');
 
-  // Dynamic loading messages cycling
+  // Ref para clique seguro no backdrop (impede fechamento acidental ao selecionar texto)
+  const backdropMouseDownRef = useRef(false);
+
+  // Mensagens dinâmicas de loading da IA
   const LOADING_MESSAGES = [
     '🔍 Buscando histórico, metas e restrições do paciente...',
     '🧠 IA calculando distribuição calórica e macro-nutrientes...',
@@ -118,10 +145,43 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     return () => clearInterval(interval);
   }, [gerandoPlanoIA]);
 
-  // Load datos and consultas on mount or patient change
+  // Carregar dados quando o paciente selecionado mudar
   useEffect(() => {
     if (paciente) {
-      setFormData({ ...paciente });
+      setNomeTexto(paciente.nome || '');
+      setDataNascTexto(paciente.data_nascimento || '');
+      setSexoTexto(paciente.sexo || 'Feminino');
+      setWhatsappTexto(paciente.whatsapp || '');
+      setEmailTexto(paciente.email || '');
+
+      setPesoTexto(
+        paciente.peso_inicial !== undefined && paciente.peso_inicial !== null
+          ? String(paciente.peso_inicial)
+          : ''
+      );
+      setAlturaTexto(
+        paciente.altura !== undefined && paciente.altura !== null
+          ? String(paciente.altura)
+          : ''
+      );
+      setNivelAtividadeTexto(paciente.nivel_atividade || 'Moderadamente ativo');
+      setObjetivosTexto(paciente.objetivos?.join(', ') || paciente.objetivo_texto || '');
+      setPatologiasTexto(paciente.patologias?.join(', ') || '');
+      setAlergiasTexto(paciente.alergias?.join(', ') || '');
+      setRestricoesTexto(paciente.restricoes_alimentares?.join(', ') || '');
+      setMedicamentosTexto(paciente.medicamentos || '');
+      setSuplementosTexto(paciente.suplementos || '');
+
+      setRefeicoesPorDiaTexto(
+        paciente.refeicoes_por_dia ? String(paciente.refeicoes_por_dia) : '4'
+      );
+      setHorarioAcordaTexto(paciente.horario_acorda || '06:00');
+      setHorarioDormeTexto(paciente.horario_dorme || '22:00');
+      setLitrosAguaTexto(paciente.litros_agua ? String(paciente.litros_agua) : '2');
+      setAtividadeFisicaCheck(!!paciente.atividade_fisica);
+      setAtividadeFisicaDescTexto(paciente.atividade_fisica_descricao || '');
+      setObservacoesTexto(paciente.observacoes || '');
+
       loadConsultasAndPlanos();
     }
   }, [paciente]);
@@ -139,10 +199,9 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     }
   };
 
-
   if (!paciente) return null;
 
-  // Format helper
+  // Formatador de data
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'Não informada';
     try {
@@ -154,7 +213,7 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     }
   };
 
-  // Age calc
+  // Cálculo de idade
   const calcularIdade = (dataNascStr?: string): number | null => {
     if (!dataNascStr) return null;
     const nasc = new Date(dataNascStr);
@@ -168,12 +227,24 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     return idade >= 0 ? idade : null;
   };
 
-  // IMC Calc
+  // Parser robusto de decimais (suporta vírgula e ponto)
+  const parseDecimal = (val: string): number | null => {
+    if (!val) return null;
+    const clean = val.replace(',', '.').trim();
+    const num = parseFloat(clean);
+    return isNaN(num) || num <= 0 ? null : num;
+  };
+
+  // Cálculo do IMC
   const calcularIMC = (): { imc: string; classificacao: string } | null => {
-    const p = formData.peso_inicial;
-    const aM = formData.altura;
-    if (!p || !aM || p <= 0 || aM <= 0) return null;
-    const val = p / (aM * aM);
+    const p = parseDecimal(pesoTexto);
+    const a = parseDecimal(alturaTexto);
+    if (!p || !a) return null;
+
+    const alturaEmMetros = a > 3 ? a / 100 : a;
+    if (alturaEmMetros <= 0) return null;
+
+    const val = p / (alturaEmMetros * alturaEmMetros);
     let classif = '';
     if (val < 18.5) classif = 'Abaixo do peso';
     else if (val < 25) classif = 'Peso normal';
@@ -184,38 +255,82 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     return { imc: val.toFixed(1), classificacao: classif };
   };
 
-  // Handlers for Paciente Edit
+  // Salvar alterações nos dados do paciente
   const handleSavePaciente = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !paciente) return;
 
     setSavingPaciente(true);
     setPacienteSuccessMsg('');
     try {
-      await updatePaciente(user.id, paciente.id, formData);
+      const pNum = parseDecimal(pesoTexto);
+      const aRaw = parseDecimal(alturaTexto);
+      const aNum = aRaw ? (aRaw > 3 ? aRaw / 100 : aRaw) : undefined;
+      const lNum = parseDecimal(litrosAguaTexto);
+      const rNum = parseInt(refeicoesPorDiaTexto, 10);
+
+      const dadosParaSalvar: Partial<Paciente> = {
+        nome: nomeTexto.trim() || paciente.nome,
+        data_nascimento: dataNascTexto || undefined,
+        sexo: sexoTexto,
+        whatsapp: whatsappTexto.trim() || undefined,
+        email: emailTexto.trim() || undefined,
+        peso_inicial: pNum !== null ? pNum : undefined,
+        altura: aNum !== undefined ? aNum : undefined,
+        nivel_atividade: nivelAtividadeTexto,
+        objetivos: objetivosTexto.trim()
+          ? objetivosTexto.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        objetivo_texto: objetivosTexto.trim() || undefined,
+        patologias: patologiasTexto.trim()
+          ? patologiasTexto.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        alergias: alergiasTexto.trim()
+          ? alergiasTexto.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        restricoes_alimentares: restricoesTexto.trim()
+          ? restricoesTexto.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        medicamentos: medicamentosTexto.trim() || undefined,
+        suplementos: suplementosTexto.trim() || undefined,
+        refeicoes_por_dia: !isNaN(rNum) ? rNum : undefined,
+        horario_acorda: horarioAcordaTexto.trim() || undefined,
+        horario_dorme: horarioDormeTexto.trim() || undefined,
+        litros_agua: lNum !== null ? lNum : undefined,
+        atividade_fisica: atividadeFisicaCheck,
+        atividade_fisica_descricao: atividadeFisicaCheck ? atividadeFisicaDescTexto.trim() : undefined,
+        observacoes: observacoesTexto.trim() || undefined,
+      };
+
+      await updatePaciente(user.id, paciente.id, dadosParaSalvar);
       setPacienteSuccessMsg('Dados do paciente atualizados com sucesso!');
       if (onRefresh) onRefresh();
       setTimeout(() => setPacienteSuccessMsg(''), 4000);
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao atualizar paciente:', err);
     } finally {
       setSavingPaciente(false);
     }
   };
 
-  // Handler for Nova Consulta
+  // Salvar nova consulta
   const handleSaveConsulta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !paciente) return;
 
     setSavingConsulta(true);
     try {
+      const pNum = parseDecimal(novoPeso);
+      const cNum = parseDecimal(novaCintura);
+      const qNum = parseDecimal(novoQuadril);
+      const gNum = parseDecimal(novoPercentualGordura);
+
       await addConsulta(user.id, paciente.id, {
         data_consulta: novaDataConsulta,
-        peso: novoPeso ? parseFloat(novoPeso) : undefined,
-        cintura: novaCintura ? parseFloat(novaCintura) : undefined,
-        quadril: novoQuadril ? parseFloat(novoQuadril) : undefined,
-        percentual_gordura: novoPercentualGordura ? parseFloat(novoPercentualGordura) : undefined,
+        peso: pNum !== null ? pNum : undefined,
+        cintura: cNum !== null ? cNum : undefined,
+        quadril: qNum !== null ? qNum : undefined,
+        percentual_gordura: gNum !== null ? gNum : undefined,
         observacoes: novasObservacoes.trim() || undefined,
         proximo_retorno: novoProximoRetorno || null,
       });
@@ -229,7 +344,6 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
       setNovoProximoRetorno('');
       setShowNovaConsultaModal(false);
 
-      // Reload
       await loadConsultasAndPlanos();
       if (onRefresh) onRefresh();
     } catch (e) {
@@ -239,7 +353,7 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     }
   };
 
-  // Helpers e Handlers para Planos Alimentares
+  // Helpers para Planos Alimentares
   const getRefeicaoInfo = (key: keyof RefeicoesDia) => {
     switch (key) {
       case 'cafe_da_manha':
@@ -260,7 +374,7 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
   const formatarPlanoParaTexto = (plano: PlanoSemanalEstrutura): string => {
     let txt = `====================================================\n`;
     txt += `PLANO ALIMENTAR SEMANAL PERSONALIZADO\n`;
-    txt += `Paciente: ${paciente.nome}\n`;
+    txt += `Paciente: ${nomeTexto || paciente.nome}\n`;
     txt += `Data: ${new Date().toLocaleDateString('pt-BR')}\n`;
     txt += `====================================================\n\n`;
 
@@ -298,23 +412,23 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
 
     try {
       const dadosPacienteFormatados = `
-Nome: ${paciente.nome}
-Idade: ${calcularIdade(formData.data_nascimento) ?? 'Não informada'}
-Sexo: ${formData.sexo || 'Não informado'}
-Peso Inicial / Atual: ${formData.peso_inicial ? `${formData.peso_inicial} kg` : 'Não informado'}
-Altura: ${formData.altura ? `${formData.altura} m` : 'Não informado'}
-Objetivos: ${formData.objetivos?.length ? formData.objetivos.join(', ') : formData.objetivo_texto || 'Melhora da saúde e alimentação balanceada'}
-Nível de Atividade: ${formData.nivel_atividade || 'Moderado'}
-Alergias Alimentares: ${formData.alergias?.length ? formData.alergias.join(', ') : 'Nenhuma alergia relatada'}
-Restrições Alimentares: ${formData.restricoes_alimentares?.length ? formData.restricoes_alimentares.join(', ') : 'Nenhuma restrição relatada'}
-Patologias / Condições Clínicas: ${formData.patologias?.length ? formData.patologias.join(', ') : 'Nenhuma relatada'}
-Medicamentos em uso: ${formData.medicamentos || 'Nenhum'}
-Suplementos: ${formData.suplementos || 'Nenhum'}
-Refeições por dia habituais: ${formData.refeicoes_por_dia || 5}
-Horário que acorda / dorme: ${formData.horario_acorda || '07:00'} / ${formData.horario_dorme || '23:00'}
-Consumo de água: ${formData.litros_agua ? `${formData.litros_agua}L` : '2L'} por dia
-Atividade física: ${formData.atividade_fisica ? `Sim (${formData.atividade_fisica_descricao || 'Regular'})` : 'Não'}
-Observações complementares: ${formData.observacoes || 'Nenhuma'}
+Nome: ${nomeTexto || paciente.nome}
+Idade: ${calcularIdade(dataNascTexto) ?? 'Não informada'}
+Sexo: ${sexoTexto || 'Não informado'}
+Peso Inicial / Atual: ${pesoTexto ? `${pesoTexto} kg` : 'Não informado'}
+Altura: ${alturaTexto ? `${alturaTexto} m` : 'Não informado'}
+Objetivos: ${objetivosTexto || 'Melhora da saúde e alimentação balanceada'}
+Nível de Atividade: ${nivelAtividadeTexto || 'Moderado'}
+Alergias Alimentares: ${alergiasTexto || 'Nenhuma alergia relatada'}
+Restrições Alimentares: ${restricoesTexto || 'Nenhuma restrição relatada'}
+Patologias / Condições Clínicas: ${patologiasTexto || 'Nenhuma relatada'}
+Medicamentos em uso: ${medicamentosTexto || 'Nenhum'}
+Suplementos: ${suplementosTexto || 'Nenhum'}
+Refeições por dia habituais: ${refeicoesPorDiaTexto || 5}
+Horário que acorda / dorme: ${horarioAcordaTexto || '07:00'} / ${horarioDormeTexto || '23:00'}
+Consumo de água: ${litrosAguaTexto ? `${litrosAguaTexto}L` : '2L'} por dia
+Atividade física: ${atividadeFisicaCheck ? `Sim (${atividadeFisicaDescTexto || 'Regular'})` : 'Não'}
+Observações complementares: ${observacoesTexto || 'Nenhuma'}
 `.trim();
 
       const response = await fetch('/api/gerar-plano', {
@@ -334,7 +448,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
       }
 
       setPlanoEmEdicao(data);
-      setTituloPlanoEmEdicao(`Plano Alimentar IA — ${paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+      setTituloPlanoEmEdicao(`Plano Alimentar IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
       setDiaAtivoEdicao(0);
       setPlanoSuccessMsg('✨ Plano alimentar gerado com sucesso pela IA! Revise e personalize as opções abaixo.');
     } catch (err: any) {
@@ -348,7 +462,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
   const handleCriarPlanoManual = () => {
     const padrao = createDefaultPlanoSemanal();
     setPlanoEmEdicao(padrao);
-    setTituloPlanoEmEdicao(`Plano Alimentar Manual — ${paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+    setTituloPlanoEmEdicao(`Plano Alimentar Manual — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
     setDiaAtivoEdicao(0);
     setPlanoErrorMsg('');
     setPlanoSuccessMsg('Modelo semanal carregado. Preencha ou modifique as opções conforme desejar.');
@@ -449,9 +563,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
     setSelectedPlano(null);
   };
 
-
   // Preparar dados do gráfico de evolução de peso
-  // Ordenado por data crescente para o gráfico (da mais antiga para a mais recente)
   const consultasOrdenadasTempo = [...consultas].sort(
     (a, b) => new Date(a.data_consulta).getTime() - new Date(b.data_consulta).getTime()
   );
@@ -462,12 +574,29 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
   const deltaPeso = maxPeso - minPeso || 1;
 
   const imcResult = calcularIMC();
-  const idadeCalculada = calcularIdade(formData.data_nascimento);
+  const idadeCalculada = calcularIdade(dataNascTexto);
+
+  // Manipuladores de clique seguro no Backdrop para evitar fechamento acidental
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    backdropMouseDownRef.current = e.target === e.currentTarget;
+  };
+
+  const handleBackdropMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (backdropMouseDownRef.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    backdropMouseDownRef.current = false;
+  };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={handleBackdropMouseDown}
+      onMouseUp={handleBackdropMouseUp}
+    >
       <div
         className="modal-content auth-card"
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: '850px',
@@ -493,7 +622,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
               className="avatar-badge"
               style={{ width: 50, height: 50, fontSize: '1.2rem', fontWeight: 800 }}
             >
-              {paciente.nome.slice(0, 2).toUpperCase()}
+              {(nomeTexto || paciente.nome).slice(0, 2).toUpperCase()}
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -505,7 +634,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                     color: 'var(--text-main)',
                   }}
                 >
-                  {paciente.nome}
+                  {nomeTexto || paciente.nome}
                 </h2>
               </div>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
@@ -551,7 +680,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
           </div>
         ) : null}
 
-        {/* NAVEGAÇÃO PRINCIPAL EM 3 SEÇÕES (Prompt 5) */}
+        {/* NAVEGAÇÃO PRINCIPAL EM 3 SEÇÕES */}
         <div
           style={{
             display: 'flex',
@@ -656,9 +785,8 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.nome || ''}
-                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                       
+                      value={nomeTexto}
+                      onChange={(e) => setNomeTexto(e.target.value)}
                     />
                   </div>
 
@@ -668,9 +796,8 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="date"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.data_nascimento || ''}
-                      onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
-                       
+                      value={dataNascTexto}
+                      onChange={(e) => setDataNascTexto(e.target.value)}
                     />
                     {idadeCalculada !== null && (
                       <span
@@ -690,9 +817,8 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                     <select
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.sexo || 'Feminino'}
-                      onChange={(e) => setFormData({ ...formData, sexo: e.target.value })}
-                       
+                      value={sexoTexto}
+                      onChange={(e) => setSexoTexto(e.target.value)}
                     >
                       <option value="Feminino">Feminino</option>
                       <option value="Masculino">Masculino</option>
@@ -706,9 +832,9 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.whatsapp || ''}
-                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                       
+                      value={whatsappTexto}
+                      onChange={(e) => setWhatsappTexto(e.target.value)}
+                      placeholder="(00) 00000-0000"
                     />
                   </div>
 
@@ -718,9 +844,9 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="email"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.email || ''}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                       
+                      value={emailTexto}
+                      onChange={(e) => setEmailTexto(e.target.value)}
+                      placeholder="email@exemplo.com"
                     />
                   </div>
                 </div>
@@ -738,36 +864,24 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                   <div className="form-group">
                     <label className="form-label">Peso Atual (kg)</label>
                     <input
-                      type="number"
-                      step="0.1"
+                      type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.peso_inicial || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          peso_inicial: e.target.value ? parseFloat(e.target.value) : undefined,
-                        })
-                      }
-                       
+                      value={pesoTexto}
+                      onChange={(e) => setPesoTexto(e.target.value)}
+                      placeholder="Ex: 78.5 ou 78,5"
                     />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Altura (m)</label>
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.altura || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          altura: e.target.value ? parseFloat(e.target.value) : undefined,
-                        })
-                      }
-                       
+                      value={alturaTexto}
+                      onChange={(e) => setAlturaTexto(e.target.value)}
+                      placeholder="Ex: 1.75 ou 1,75"
                     />
                   </div>
 
@@ -786,7 +900,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       value={
                         imcResult
                           ? `${imcResult.imc} kg/m² (${imcResult.classificacao})`
-                          : 'Pendente'
+                          : 'Informe peso e altura'
                       }
                     />
                   </div>
@@ -796,9 +910,8 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                     <select
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.nivel_atividade || 'Moderadamente ativo'}
-                      onChange={(e) => setFormData({ ...formData, nivel_atividade: e.target.value })}
-                       
+                      value={nivelAtividadeTexto}
+                      onChange={(e) => setNivelAtividadeTexto(e.target.value)}
                     >
                       <option value="Sedentário">Sedentário</option>
                       <option value="Levemente ativo">Levemente ativo</option>
@@ -814,34 +927,45 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={
-                        formData.objetivos?.join(', ') || formData.objetivo_texto || ''
-                      }
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          objetivos: e.target.value.split(',').map((s) => s.trim()),
-                        })
-                      }
-                       
-                      placeholder="Ex: Emagrecimento, Ganho de massa"
+                      value={objetivosTexto}
+                      onChange={(e) => setObjetivosTexto(e.target.value)}
+                      placeholder="Ex: Emagrecimento com saúde, Ganho de massa magra"
                     />
                   </div>
 
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Patologias / Condições</label>
+                    <label className="form-label">Patologias / Condições Clínicas</label>
                     <input
                       type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.patologias?.join(', ') || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          patologias: e.target.value.split(',').map((s) => s.trim()),
-                        })
-                      }
-                       
+                      value={patologiasTexto}
+                      onChange={(e) => setPatologiasTexto(e.target.value)}
+                      placeholder="Ex: Diabetes Tipo 2, Hipertensão, Gastrite"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Alergias Alimentares</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ paddingLeft: '1rem' }}
+                      value={alergiasTexto}
+                      onChange={(e) => setAlergiasTexto(e.target.value)}
+                      placeholder="Ex: Amendoim, Frutos do mar, Leite"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Restrições Alimentares</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ paddingLeft: '1rem' }}
+                      value={restricoesTexto}
+                      onChange={(e) => setRestricoesTexto(e.target.value)}
+                      placeholder="Ex: Glúten, Lactose, Vegetariano"
                     />
                   </div>
 
@@ -851,9 +975,9 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       className="form-input"
                       rows={2}
                       style={{ padding: '0.5rem 1rem' }}
-                      value={formData.medicamentos || ''}
-                      onChange={(e) => setFormData({ ...formData, medicamentos: e.target.value })}
-                       
+                      value={medicamentosTexto}
+                      onChange={(e) => setMedicamentosTexto(e.target.value)}
+                      placeholder="Nenhum ou descreva..."
                     />
                   </div>
 
@@ -863,9 +987,9 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       className="form-input"
                       rows={2}
                       style={{ padding: '0.5rem 1rem' }}
-                      value={formData.suplementos || ''}
-                      onChange={(e) => setFormData({ ...formData, suplementos: e.target.value })}
-                       
+                      value={suplementosTexto}
+                      onChange={(e) => setSuplementosTexto(e.target.value)}
+                      placeholder="Nenhum ou descreva (Whey, Creatina, etc.)..."
                     />
                   </div>
                 </div>
@@ -883,19 +1007,12 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                   <div className="form-group">
                     <label className="form-label">Refeições por dia</label>
                     <input
-                      type="number"
+                      type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.refeicoes_por_dia || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          refeicoes_por_dia: e.target.value
-                            ? parseInt(e.target.value, 10)
-                            : undefined,
-                        })
-                      }
-                       
+                      value={refeicoesPorDiaTexto}
+                      onChange={(e) => setRefeicoesPorDiaTexto(e.target.value)}
+                      placeholder="Ex: 4 ou 5"
                     />
                   </div>
 
@@ -905,9 +1022,9 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.horario_acorda || ''}
-                      onChange={(e) => setFormData({ ...formData, horario_acorda: e.target.value })}
-                       
+                      value={horarioAcordaTexto}
+                      onChange={(e) => setHorarioAcordaTexto(e.target.value)}
+                      placeholder="Ex: 06:30"
                     />
                   </div>
 
@@ -917,28 +1034,43 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.horario_dorme || ''}
-                      onChange={(e) => setFormData({ ...formData, horario_dorme: e.target.value })}
-                       
+                      value={horarioDormeTexto}
+                      onChange={(e) => setHorarioDormeTexto(e.target.value)}
+                      placeholder="Ex: 22:30"
                     />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Consumo de água (Litros)</label>
                     <input
-                      type="number"
-                      step="0.5"
+                      type="text"
                       className="form-input"
                       style={{ paddingLeft: '1rem' }}
-                      value={formData.litros_agua || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          litros_agua: e.target.value ? parseFloat(e.target.value) : undefined,
-                        })
-                      }
-                       
+                      value={litrosAguaTexto}
+                      onChange={(e) => setLitrosAguaTexto(e.target.value)}
+                      placeholder="Ex: 2.5 ou 2,5"
                     />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={atividadeFisicaCheck}
+                        onChange={(e) => setAtividadeFisicaCheck(e.target.checked)}
+                      />
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Pratica atividade física regularmente</span>
+                    </label>
+                    {atividadeFisicaCheck && (
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ paddingLeft: '1rem', marginTop: '0.5rem' }}
+                        value={atividadeFisicaDescTexto}
+                        onChange={(e) => setAtividadeFisicaDescTexto(e.target.value)}
+                        placeholder="Ex: Musculação 4x na semana, Corrida aos sábados"
+                      />
+                    )}
                   </div>
 
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -947,9 +1079,9 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       className="form-input"
                       rows={3}
                       style={{ padding: '0.75rem 1rem' }}
-                      value={formData.observacoes || ''}
-                      onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                       
+                      value={observacoesTexto}
+                      onChange={(e) => setObservacoesTexto(e.target.value)}
+                      placeholder="Anotações adicionais sobre o paciente..."
                     />
                   </div>
                 </div>
@@ -1028,7 +1160,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Activity className="w-5 h-5" style={{ color: 'var(--color-primary-red)' }} />
+                  <Activity className="w-5 h-5" style={{ color: 'var(--color-primary-green)' }} />
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
                     Gráfico de Evolução de Peso (kg)
                   </span>
@@ -1051,205 +1183,205 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
               {pesosValidos.length === 0 ? (
                 <div
                   style={{
-                    padding: '2.5rem',
+                    padding: '2.5rem 1rem',
                     textAlign: 'center',
                     color: 'var(--text-muted)',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '8px',
-                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                    fontSize: '0.875rem',
                   }}
                 >
-                  <Activity
-                    className="w-8 h-8"
-                    style={{ margin: '0 auto 0.5rem', opacity: 0.4 }}
-                  />
-                  <p style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
-                    Nenhuma consulta registrada ainda
+                  <Activity className="w-8 h-8" style={{ margin: '0 auto 0.5rem', opacity: 0.4 }} />
+                  <p>Nenhuma consulta registrada ainda</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+                    Cadastre a primeira consulta para acompanhar a evolução do peso ao longo do tempo.
                   </p>
-                  <span style={{ fontSize: '0.8125rem' }}>
-                    Clique em "Nova Consulta" acima para adicionar o primeiro registro de peso.
-                  </span>
                 </div>
               ) : (
-                /* Gráfico SVG de Linha Customizado & Elegante */
-                <div style={{ width: '100%', overflowX: 'auto' }}>
-                  <div style={{ minWidth: '400px', height: '180px', position: 'relative' }}>
-                    <svg viewBox="0 0 500 150" style={{ width: '100%', height: '100%' }}>
-                      {/* Linhas de grade do fundo */}
-                      <line x1="40" y1="20" x2="480" y2="20" stroke="rgba(255,255,255,0.06)" strokeDasharray="4" />
-                      <line x1="40" y1="70" x2="480" y2="70" stroke="rgba(255,255,255,0.06)" strokeDasharray="4" />
-                      <line x1="40" y1="120" x2="480" y2="120" stroke="rgba(255,255,255,0.06)" strokeDasharray="4" />
+                <div style={{ padding: '0.5rem 0' }}>
+                  {/* SVG Chart */}
+                  <div style={{ width: '100%', height: '140px', position: 'relative' }}>
+                    <svg
+                      viewBox={`0 0 ${Math.max(pesosValidos.length * 100, 300)} 120`}
+                      style={{ width: '100%', height: '100%', overflow: 'visible' }}
+                    >
+                      {/* Grid Lines */}
+                      <line x1="0" y1="20" x2="100%" y2="20" stroke="rgba(255,255,255,0.05)" strokeDasharray="3,3" />
+                      <line x1="0" y1="60" x2="100%" y2="60" stroke="rgba(255,255,255,0.05)" strokeDasharray="3,3" />
+                      <line x1="0" y1="100" x2="100%" y2="100" stroke="rgba(255,255,255,0.05)" strokeDasharray="3,3" />
 
-                      {/* Desenho dos Pontos e Linha */}
-                      {(() => {
-                        const count = pesosValidos.length;
-                        const points = pesosValidos.map((item, index) => {
-                          const x = count === 1 ? 260 : 50 + (index / (count - 1)) * 410;
-                          const ratio = (item.peso! - minPeso) / deltaPeso;
-                          const y = 120 - ratio * 100;
-                          return { x, y, item };
-                        });
+                      {/* Polyline */}
+                      {pesosValidos.length > 1 && (
+                        <polyline
+                          fill="none"
+                          stroke="var(--color-primary-green)"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          points={pesosValidos
+                            .map((c, i) => {
+                              const total = pesosValidos.length;
+                              const width = Math.max(total * 100, 300);
+                              const x = (i / (total - 1)) * (width - 40) + 20;
+                              const y = 100 - ((c.peso! - minPeso) / deltaPeso) * 80;
+                              return `${x},${y}`;
+                            })
+                            .join(' ')}
+                        />
+                      )}
 
-                        const pathD = points.reduce(
-                          (acc, p, idx) => (idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`),
-                          ''
-                        );
-
+                      {/* Dots and Labels */}
+                      {pesosValidos.map((c, i) => {
+                        const total = pesosValidos.length;
+                        const width = Math.max(total * 100, 300);
+                        const x = total === 1 ? width / 2 : (i / (total - 1)) * (width - 40) + 20;
+                        const y = 100 - ((c.peso! - minPeso) / deltaPeso) * 80;
                         return (
-                          <>
-                            {count > 1 && (
-                              <path
-                                d={pathD}
-                                fill="none"
-                                stroke="var(--color-primary-red)"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                              />
-                            )}
-                            {points.map((p, idx) => (
-                              <g key={idx}>
-                                <circle
-                                  cx={p.x}
-                                  cy={p.y}
-                                  r="5"
-                                  fill="var(--color-accent-yellow)"
-                                  stroke="#0F172A"
-                                  strokeWidth="2"
-                                />
-                                <text
-                                  x={p.x}
-                                  y={p.y - 10}
-                                  fill="var(--text-main)"
-                                  fontSize="10"
-                                  fontWeight="bold"
-                                  textAnchor="middle"
-                                >
-                                  {p.item.peso} kg
-                                </text>
-                                <text
-                                  x={p.x}
-                                  y="142"
-                                  fill="var(--text-muted)"
-                                  fontSize="9"
-                                  textAnchor="middle"
-                                >
-                                  {formatDate(p.item.data_consulta)}
-                                </text>
-                              </g>
-                            ))}
-                          </>
+                          <g key={c.id}>
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r="5"
+                              fill="#10B981"
+                              stroke="#060D19"
+                              strokeWidth="2"
+                            />
+                            <text
+                              x={x}
+                              y={y - 10}
+                              textAnchor="middle"
+                              fill="#FFFFFF"
+                              fontSize="11"
+                              fontWeight="700"
+                            >
+                              {c.peso}kg
+                            </text>
+                            <text
+                              x={x}
+                              y="118"
+                              textAnchor="middle"
+                              fill="rgba(255,255,255,0.5)"
+                              fontSize="9"
+                            >
+                              {formatDate(c.data_consulta)}
+                            </text>
+                          </g>
                         );
-                      })()}
+                      })}
                     </svg>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* LISTA DE CONSULTAS EM ORDEM CRONOLÓGICA DECRESCENTE */}
+            {/* LISTA DE CONSULTAS ANTERIORES */}
             <div>
-              <h4
-                style={{
-                  fontSize: '0.9375rem',
-                  color: 'var(--text-muted)',
-                  marginBottom: '0.75rem',
-                  fontWeight: 600,
-                }}
-              >
+              <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-main)' }}>
                 Histórico de Consultas ({consultas.length})
               </h4>
 
               {consultas.length === 0 ? (
                 <div
+                  className="auth-card"
                   style={{
+                    maxWidth: '100%',
                     textAlign: 'center',
-                    padding: '1.5rem',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
+                    padding: '2.5rem 1rem',
+                    background: 'rgba(15, 23, 42, 0.4)',
                   }}
                 >
-                  Nenhum registro no histórico.
+                  <Calendar className="w-10 h-10" style={{ color: 'var(--text-muted)', margin: '0 auto 0.75rem', opacity: 0.5 }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>
+                    Nenhuma consulta registrada para este paciente.
+                  </p>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
-                  {consultas.map((c) => (
+                  {consultas.map((cons) => (
                     <div
-                      key={c.id}
+                      key={cons.id}
                       className="stat-card"
                       style={{
-                        padding: '1rem',
+                        padding: '1.1rem',
                         flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        gap: '0.5rem',
-                        background: 'rgba(15, 23, 42, 0.4)',
+                        alignItems: 'stretch',
+                        background: 'rgba(15, 23, 42, 0.6)',
                       }}
                     >
                       <div
                         style={{
-                          width: '100%',
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          paddingBottom: '0.6rem',
+                          marginBottom: '0.6rem',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Calendar className="w-4 h-4" style={{ color: 'var(--color-accent-yellow)' }} />
-                          <strong style={{ fontSize: '0.95rem' }}>
-                            Consulta em {formatDate(c.data_consulta)}
-                          </strong>
+                          <Calendar className="w-4 h-4" style={{ color: 'var(--color-primary-green)' }} />
+                          <strong style={{ fontSize: '0.95rem' }}>Consulta em {formatDate(cons.data_consulta)}</strong>
                         </div>
-                        {c.proximo_retorno && (
+                        {cons.proximo_retorno && (
                           <span
                             style={{
                               fontSize: '0.75rem',
-                              color: '#38BDF8',
-                              background: 'rgba(56, 189, 248, 0.15)',
-                              padding: '0.15rem 0.5rem',
-                              borderRadius: '999px',
-                              fontWeight: 600,
+                              color: 'var(--color-accent-blue)',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: '6px',
                             }}
                           >
-                            Retorno: {formatDate(c.proximo_retorno)}
+                            Retorno: {formatDate(cons.proximo_retorno)}
                           </span>
                         )}
                       </div>
 
+                      {/* Métricas da Consulta */}
                       <div
                         style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '1.25rem',
-                          fontSize: '0.84rem',
-                          color: 'var(--text-muted)',
-                          marginTop: '0.25rem',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                          gap: '0.5rem',
+                          fontSize: '0.8125rem',
                         }}
                       >
-                        <span>
-                          <strong>Peso:</strong> {c.peso ? `${c.peso} kg` : '-'}
-                        </span>
-                        <span>
-                          <strong>Cintura:</strong> {c.cintura ? `${c.cintura} cm` : '-'}
-                        </span>
-                        <span>
-                          <strong>Quadril:</strong> {c.quadril ? `${c.quadril} cm` : '-'}
-                        </span>
-                        <span>
-                          <strong>% Gordura:</strong>{' '}
-                          {c.percentual_gordura ? `${c.percentual_gordura}%` : '-'}
-                        </span>
+                        {cons.peso !== undefined && (
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>Peso: </span>
+                            <strong style={{ color: '#FFFFFF' }}>{cons.peso} kg</strong>
+                          </div>
+                        )}
+                        {cons.cintura !== undefined && (
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>Cintura: </span>
+                            <strong style={{ color: '#FFFFFF' }}>{cons.cintura} cm</strong>
+                          </div>
+                        )}
+                        {cons.quadril !== undefined && (
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>Quadril: </span>
+                            <strong style={{ color: '#FFFFFF' }}>{cons.quadril} cm</strong>
+                          </div>
+                        )}
+                        {cons.percentual_gordura !== undefined && (
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>% Gordura: </span>
+                            <strong style={{ color: '#FFFFFF' }}>{cons.percentual_gordura}%</strong>
+                          </div>
+                        )}
                       </div>
 
-                      {c.observacoes && (
-                        <p
+                      {cons.observacoes && (
+                        <div
                           style={{
+                            marginTop: '0.6rem',
+                            paddingTop: '0.6rem',
+                            borderTop: '1px dashed rgba(255,255,255,0.06)',
                             fontSize: '0.8125rem',
                             color: 'var(--text-muted)',
-                            fontStyle: 'italic',
-                            marginTop: '0.25rem',
                           }}
                         >
-                          "{c.observacoes}"
-                        </p>
+                          <strong>Obs:</strong> {cons.observacoes}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1257,7 +1389,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
               )}
             </div>
 
-            {/* MODAL NOVA CONSULTA */}
+            {/* Modal Nova Consulta */}
             {showNovaConsultaModal && (
               <div
                 className="modal-backdrop"
@@ -1304,11 +1436,10 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       <div className="form-group">
                         <label className="form-label">Peso Atual (kg)</label>
                         <input
-                          type="number"
-                          step="0.1"
+                          type="text"
                           className="form-input"
                           style={{ paddingLeft: '1rem' }}
-                          placeholder="Ex: 75.2"
+                          placeholder="Ex: 75.2 ou 75,2"
                           value={novoPeso}
                           onChange={(e) => setNovoPeso(e.target.value)}
                           required
@@ -1318,8 +1449,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       <div className="form-group">
                         <label className="form-label">Cintura (cm)</label>
                         <input
-                          type="number"
-                          step="0.5"
+                          type="text"
                           className="form-input"
                           style={{ paddingLeft: '1rem' }}
                           placeholder="Ex: 80"
@@ -1331,8 +1461,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       <div className="form-group">
                         <label className="form-label">Quadril (cm)</label>
                         <input
-                          type="number"
-                          step="0.5"
+                          type="text"
                           className="form-input"
                           style={{ paddingLeft: '1rem' }}
                           placeholder="Ex: 95"
@@ -1344,11 +1473,10 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                       <div className="form-group">
                         <label className="form-label">% Gordura</label>
                         <input
-                          type="number"
-                          step="0.1"
+                          type="text"
                           className="form-input"
                           style={{ paddingLeft: '1rem' }}
-                          placeholder="Ex: 22.5"
+                          placeholder="Ex: 22.5 ou 22,5"
                           value={novoPercentualGordura}
                           onChange={(e) => setNovoPercentualGordura(e.target.value)}
                         />
@@ -1532,7 +1660,7 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
                   {LOADING_MESSAGES[loadingMessageIndex]}
                 </p>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                  Processando perfil de {paciente.nome} (Metas, alergias e preferências alimentares)...
+                  Processando perfil de {nomeTexto || paciente.nome} (Metas, alergias e preferências)...
                 </p>
               </div>
             )}
@@ -2089,7 +2217,6 @@ Observações complementares: ${formData.observacoes || 'Nenhuma'}
             </div>
           </div>
         )}
-
 
         {/* Footer Fechar */}
         <div

@@ -66,10 +66,10 @@ export const PacienteCadastroView: React.FC<PacienteCadastroViewProps> = ({
   };
 
   const calcularIMC = (): { imc: string; classificacao: string } | null => {
-    const p = parseFloat(peso);
-    const aCm = parseFloat(altura);
+    const p = parseFloat(peso.replace(',', '.'));
+    const aCm = parseFloat(altura.replace(',', '.'));
     if (!p || !aCm || p <= 0 || aCm <= 0) return null;
-    const aM = aCm / 100;
+    const aM = aCm > 3 ? aCm / 100 : aCm;
     const val = p / (aM * aM);
     let classif = '';
     if (val < 18.5) classif = 'Abaixo do peso';
@@ -144,9 +144,10 @@ export const PacienteCadastroView: React.FC<PacienteCadastroViewProps> = ({
       const alergiasFinais = [...alergiasSelecionadas];
       if (alergiaLivre.trim()) alergiasFinais.push(alergiaLivre.trim());
 
-      // Converte altura de cm para metros no armazenamento (mantém float de peso)
-      const alturaM = altura ? parseFloat(altura) / 100 : undefined;
-      const pesoKg = peso ? parseFloat(peso) : undefined;
+      // Converte altura e peso com suporte a virgula e ponto
+      const alturaParsed = altura ? parseFloat(altura.replace(',', '.')) : undefined;
+      const alturaM = alturaParsed ? (alturaParsed > 3 ? alturaParsed / 100 : alturaParsed) : undefined;
+      const pesoKg = peso ? parseFloat(peso.replace(',', '.')) : undefined;
 
       const pacienteCriado = await addPaciente(user.id, {
         nome: nome.trim(),
@@ -167,7 +168,7 @@ export const PacienteCadastroView: React.FC<PacienteCadastroViewProps> = ({
         refeicoes_por_dia: refeicoesPorDia ? parseInt(refeicoesPorDia, 10) : undefined,
         horario_acorda: formatarHora(horarioAcorda),
         horario_dorme: formatarHora(horarioDorme),
-        litros_agua: litrosAgua ? parseFloat(litrosAgua) : undefined,
+        litros_agua: litrosAgua ? parseFloat(litrosAgua.replace(',', '.')) : undefined,
         atividade_fisica: praticaAtividadeFisica,
         atividade_fisica_descricao: praticaAtividadeFisica ? atividadeFisicaDescricao.trim() : undefined,
         observacoes: observacoes.trim() || undefined,
