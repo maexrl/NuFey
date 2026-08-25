@@ -1038,3 +1038,155 @@ body {
     }
   }
 }
+
+/* ========================================================
+   AI MEAL PLANNER & INTERACTIVE EDITOR STYLES (Prompt 6)
+   ======================================================== */
+
+.btn-ai-generate {
+  background: linear-gradient(135deg, #10B981 0%, #3B82F6 50%, #8B5CF6 100%);
+  background-size: 200% 200%;
+  animation: aiGradientShift 4s ease infinite;
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35), 0 0 15px rgba(59, 130, 246, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-ai-generate:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5), 0 0 25px rgba(139, 92, 246, 0.4);
+}
+
+.btn-ai-generate:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes aiGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ai-loading-container {
+  background: radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, rgba(15, 27, 49, 0.6) 70%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-loading-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.15), transparent);
+  animation: aiShimmer 2s infinite linear;
+}
+
+@keyframes aiShimmer {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(50%); }
+}
+
+.day-tabs-nav {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  scrollbar-width: thin;
+}
+
+.day-tab-btn {
+  background: rgba(15, 27, 49, 0.7);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.day-tab-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--text-main);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.day-tab-btn.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%);
+  border-color: var(--color-primary-green);
+  color: #FFFFFF;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.meal-block-card {
+  background: rgba(15, 27, 49, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: all 0.2s ease;
+}
+
+.meal-block-card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(15, 27, 49, 0.75);
+}
+
+.meal-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 0.85rem;
+}
+
+.option-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.option-index-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+

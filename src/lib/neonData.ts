@@ -40,14 +40,33 @@ export interface Consulta {
   created_at: string;
 }
 
+export interface RefeicoesDia {
+  cafe_da_manha: string[];
+  lanche_manha: string[];
+  almoco: string[];
+  lanche_tarde: string[];
+  jantar: string[];
+}
+
+export interface DiaPlano {
+  dia: string;
+  refeicoes: RefeicoesDia;
+}
+
+export interface PlanoSemanalEstrutura {
+  plano_semanal: DiaPlano[];
+}
+
 export interface PlanoAlimentar {
   id: string;
   paciente_id: string;
   titulo: string;
   descricao?: string;
   conteudo: string;
+  plano_estruturado?: PlanoSemanalEstrutura;
   created_at: string;
 }
+
 
 export interface PacienteSemRetorno {
   paciente: Paciente;
@@ -349,4 +368,109 @@ export async function addConsulta(nutricionistaId: string, pacienteId: string, n
   saveLocalConsultas(nutricionistaId, consultas);
   return consulta;
 }
+
+// Add a new plano alimentar
+export async function addPlanoAlimentar(
+  nutricionistaId: string,
+  pacienteId: string,
+  novoPlano: {
+    titulo: string;
+    conteudo: string;
+    descricao?: string;
+    plano_estruturado?: PlanoSemanalEstrutura;
+  }
+): Promise<PlanoAlimentar> {
+  try {
+    const raw = localStorage.getItem(`nufey_planos_${nutricionistaId}`);
+    const planos: PlanoAlimentar[] = raw ? JSON.parse(raw) : [];
+
+    const plano: PlanoAlimentar = {
+      id: crypto.randomUUID(),
+      paciente_id: pacienteId,
+      titulo: novoPlano.titulo || `Plano Semanal Personalizado — ${new Date().toLocaleDateString('pt-BR')}`,
+      descricao: novoPlano.descricao,
+      conteudo: novoPlano.conteudo,
+      plano_estruturado: novoPlano.plano_estruturado,
+      created_at: new Date().toISOString(),
+    };
+
+    planos.unshift(plano);
+    localStorage.setItem(`nufey_planos_${nutricionistaId}`, JSON.stringify(planos));
+    return plano;
+  } catch (e) {
+    console.error('Erro ao salvar plano alimentar:', e);
+    throw e;
+  }
+}
+
+// Delete a plano alimentar
+export async function deletePlanoAlimentar(nutricionistaId: string, planoId: string): Promise<void> {
+  try {
+    const raw = localStorage.getItem(`nufey_planos_${nutricionistaId}`);
+    if (!raw) return;
+    let planos: PlanoAlimentar[] = JSON.parse(raw);
+    planos = planos.filter((p) => p.id !== planoId);
+    localStorage.setItem(`nufey_planos_${nutricionistaId}`, JSON.stringify(planos));
+  } catch (e) {
+    console.error('Erro ao excluir plano alimentar:', e);
+    throw e;
+  }
+}
+
+// Create a blank/default 7-day structured meal plan for manual editing
+export function createDefaultPlanoSemanal(): PlanoSemanalEstrutura {
+  const dias = [
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado',
+    'Domingo',
+  ];
+
+  return {
+    plano_semanal: dias.map((dia) => ({
+      dia,
+      refeicoes: {
+        cafe_da_manha: [
+          '2 fatias de pão integral com 2 ovos mexidos',
+          '1 xícara de café preto sem açúcar',
+          '1 fruta (banana ou mamão papaia)',
+          '1 copo (200ml) de leite desnatado ou vegetal',
+          '1 colher de sopa de sementes de chia ou aveia',
+        ],
+        lanche_manha: [
+          '1 iogurte natural desnatado',
+          '1 porção de castanhas do Pará (3 unidades)',
+          '1 maçã fuji média',
+          'Chá verde ou de camomila sem açúcar',
+          '1 barra de proteína natural',
+        ],
+        almoco: [
+          '4 colheres de sopa de arroz integral',
+          '1 concha média de feijão carioca',
+          '150g de peito de frango grelhado em tiras',
+          'Prato cheio de salada colorida (alface, tomate, cenoura ralada)',
+          '1 colher de sobremesa de azeite de oliva extravirgem',
+        ],
+        lanche_tarde: [
+          '1 tapioca fina com queijo branco ou cottage',
+          '1 copo de suco de laranja natural ou polpa',
+          '1 punhado de amêndoas ou nozes',
+          '1 fatia de melão ou melancia',
+          '1 porção de frutas vermelhas com granola',
+        ],
+        jantar: [
+          'Omelete com 2 ovos, espinafre e tomate cereja',
+          '1 prato de sopa de legumes com frango desfiado',
+          'Salada de folhas verdes com atum em água',
+          '150g de filé de peixe assado ou tilápia grelhada',
+          '1 porção pequena de purê de batata doce',
+        ],
+      },
+    })),
+  };
+}
+
 
