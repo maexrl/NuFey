@@ -13,8 +13,6 @@ dist-ssr
 *.local
 .env
 .env.*
-_prompsts
-_prompts
 
 # Editor directories and files
 .vscode/*
