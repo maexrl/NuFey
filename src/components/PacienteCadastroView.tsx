@@ -261,7 +261,8 @@ export const PacienteCadastroView: React.FC<PacienteCadastroViewProps> = ({
       )}
 
       {/* Tabs Nav */}
-      <div className="auth-card" style={{ maxWidth: '100%', padding: '0.5rem', display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(15, 23, 42, 0.6)' }}>
+      <div style={{ maxWidth: '100%', padding: '0.35rem', display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
+
         <button
           type="button"
           className={`sidebar-link ${activeTab === 'pessoal' ? 'active' : ''}`}

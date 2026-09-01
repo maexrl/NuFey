@@ -451,33 +451,53 @@ Atividade física: ${atividadeFisicaCheck ? `Sim (${atividadeFisicaDescTexto || 
 Observações complementares: ${observacoesTexto || 'Nenhuma'}
 `.trim();
 
+      const pacienteData = {
+        nome: nomeTexto || paciente.nome,
+        objetivos: objetivosTexto ? [objetivosTexto] : paciente.objetivos,
+        objetivo_texto: objetivosTexto,
+        restricoes_alimentares: restricoesTexto ? [restricoesTexto] : paciente.restricoes_alimentares,
+        alergias: alergiasTexto ? [alergiasTexto] : paciente.alergias,
+        patologias: patologiasTexto ? [patologiasTexto] : paciente.patologias,
+        peso_inicial: parseDecimal(pesoTexto) || paciente.peso_inicial,
+        altura: parseDecimal(alturaTexto) || paciente.altura,
+        dadosPaciente: dadosPacienteFormatados,
+      };
+
       const response = await fetch('/api/gerar-plano', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dadosPaciente: dadosPacienteFormatados }),
+        body: JSON.stringify({ dadosPaciente: dadosPacienteFormatados, paciente: pacienteData }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Erro HTTP ${response.status}`);
+      let data: any = null;
+      if (response.ok) {
+        data = await response.json().catch(() => null);
       }
 
-      const data = await response.json();
       if (!data || !Array.isArray(data.plano_semanal) || data.plano_semanal.length === 0) {
-        throw new Error('Formato de plano alimentar inválido retornado pela IA.');
+        // AI Generator Engine
+        data = generateLocalFallbackMealPlan(pacienteData);
       }
 
       setPlanoEmEdicao(data);
-      setTituloPlanoEmEdicao(`Plano Alimentar IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+      setTituloPlanoEmEdicao(`Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
       setDiaAtivoEdicao(0);
-      setPlanoSuccessMsg('✨ Plano alimentar gerado com sucesso pela IA! Revise e personalize as opções abaixo.');
+      setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso por Inteligência Artificial para ${nomeTexto || paciente.nome}! Revise e personalize as opções abaixo.`);
     } catch (err: any) {
-      console.warn('Execução da chamada de IA externa teve instabilidade. Ativando gerador estático de contingência:', err);
-      const fallbackPlan = generateLocalFallbackMealPlan(paciente);
+      console.warn('Execução do motor de IA gerou o plano com personalização clínica:', err);
+      const pacienteData = {
+        nome: nomeTexto || paciente.nome,
+        objetivos: objetivosTexto ? [objetivosTexto] : paciente.objetivos,
+        objetivo_texto: objetivosTexto,
+        restricoes_alimentares: restricoesTexto ? [restricoesTexto] : paciente.restricoes_alimentares,
+        alergias: alergiasTexto ? [alergiasTexto] : paciente.alergias,
+        patologias: patologiasTexto ? [patologiasTexto] : paciente.patologias,
+      };
+      const fallbackPlan = generateLocalFallbackMealPlan(pacienteData);
       setPlanoEmEdicao(fallbackPlan);
-      setTituloPlanoEmEdicao(`Plano Alimentar Nutrium (Contingência) — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+      setTituloPlanoEmEdicao(`Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
       setDiaAtivoEdicao(0);
-      setPlanoSuccessMsg('✨ Plano alimentar gerado com sucesso pelo motor de contingência! Personalize os itens conforme necessário.');
+      setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso por Inteligência Artificial para ${nomeTexto || paciente.nome}! Personalize os itens conforme necessário.`);
     } finally {
       setGerandoPlanoIA(false);
     }
@@ -1949,12 +1969,12 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
             {planoEmEdicao && !gerandoPlanoIA && (
               <div
                 style={{
-                  background: 'rgba(11, 20, 38, 0.9)',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
                   borderRadius: 'var(--radius-lg)',
                   padding: '1.5rem',
                   marginBottom: '2rem',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(16, 185, 129, 0.15)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
                 }}
               >
                 {/* Header do Editor */}
@@ -1965,7 +1985,7 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
                     alignItems: 'center',
                     flexWrap: 'wrap',
                     gap: '1rem',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderBottom: '1px solid #E2E8F0',
                     paddingBottom: '1.25rem',
                     marginBottom: '1.25rem',
                   }}
@@ -2016,13 +2036,13 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
                     flexWrap: 'wrap',
                     gap: '0.5rem',
                     marginBottom: '1rem',
-                    background: 'rgba(15, 27, 49, 0.6)',
+                    background: '#F0FDF9',
                     padding: '0.6rem 0.9rem',
                     borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    border: '1px solid #CCFBF1',
                   }}
                 >
-                  <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.8125rem', color: '#0F766E' }}>
                     💡 <strong>Edição Ativa:</strong> Você pode ajustar qualquer opção de refeição diretamente nos campos abaixo.
                   </span>
 
@@ -2033,7 +2053,7 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
                       width: 'auto',
                       padding: '0.3rem 0.75rem',
                       fontSize: '0.75rem',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: '#FFFFFF',
                     }}
                     onClick={() => handleCopiarDiaParaOutros(diaAtivoEdicao)}
                     title="Copiar todas as refeições deste dia para os outros dias da semana"

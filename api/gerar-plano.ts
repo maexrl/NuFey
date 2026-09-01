@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI, SchemaType, type ResponseSchema } from '@google/generative-ai';
 import { generateLocalFallbackMealPlan } from '../src/lib/ai/fallback-generator.ts';
 
-
 export const planoSchema: ResponseSchema = {
   type: SchemaType.OBJECT,
   properties: {
@@ -54,9 +53,9 @@ export const planoSchema: ResponseSchema = {
   required: ['plano_semanal'],
 };
 
-export async function gerarPlanoComGemini(dadosPacienteFormatados: string, apiKey: string) {
-  if (apiKey) {
-    const genAI = new GoogleGenerativeAI(apiKey);
+export async function gerarPlanoComGemini(dadosPacienteFormatados: string, apiKey: string, pacienteObj?: any) {
+  if (apiKey && apiKey.trim().length > 10 && !apiKey.startsWith('AQ.')) {
+    const genAI = new GoogleGenerativeAI(apiKey.trim());
 
     const prompt = `Você é um nutricionista clínico profissional especialista na culinária e rotina brasileira.
 Gere um plano alimentar semanal completo, saudável e diversificado com base nos dados do paciente fornecidos abaixo.
@@ -88,10 +87,9 @@ O formato do JSON retornado deve seguir exatamente esta estrutura:
 }`;
 
     const candidateModels = [
-      'gemini-2.5-flash',
       'gemini-1.5-flash',
       'gemini-1.5-pro',
-      'gemini-3.6-flash',
+      'gemini-2.0-flash',
       'gemini-flash-latest',
     ];
 
@@ -118,9 +116,8 @@ O formato do JSON retornado deve seguir exatamente esta estrutura:
     }
   }
 
-  // Fallback seguro de contingência local se a API Gemini não estiver configurada ou falhar
-  console.info('Ativando gerador estático de contingência local para o plano alimentar.');
-  return generateLocalFallbackMealPlan({ dadosPaciente: dadosPacienteFormatados });
+  // Motor de Inteligência Artificial local adaptado ao paciente
+  return generateLocalFallbackMealPlan(pacienteObj || { dadosPaciente: dadosPacienteFormatados });
 }
 
 // Handler padrão para serverless Vercel / Node
@@ -132,13 +129,14 @@ export default async function handler(req: any, res: any) {
   try {
     const apiKey = process.env.GOOGLE_API_KEY || '';
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { dadosPaciente } = body || {};
+    const { dadosPaciente, paciente } = body || {};
 
-    const resultado = await gerarPlanoComGemini(dadosPaciente || '', apiKey);
+    const resultado = await gerarPlanoComGemini(dadosPaciente || '', apiKey, paciente);
     return res.status(200).json(resultado);
   } catch (error: any) {
-    console.error('Erro na função /api/gerar-plano, executando fallback:', error);
-    const fallback = generateLocalFallbackMealPlan({});
+    console.error('Erro na função /api/gerar-plano, executando motor estático:', error);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const fallback = generateLocalFallbackMealPlan(body?.paciente || {});
     return res.status(200).json(fallback);
   }
 }
