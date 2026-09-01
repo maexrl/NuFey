@@ -24,6 +24,10 @@ import {
   Apple,
   Copy,
   AlertCircle,
+  Printer,
+  MessageCircle,
+  Calculator,
+  Scale,
 } from 'lucide-react';
 import type {
   Paciente,
@@ -42,6 +46,10 @@ import {
   createDefaultPlanoSemanal,
 } from '../lib/neonData';
 import { useAuth } from '../context/AuthContext';
+import { calculateEnergyRequirements, calculatePollock7Folds } from '../lib/nutrition-calculator';
+import { generateWhatsAppReturnMessage, openWhatsAppChat } from '../lib/whatsapp-formatter';
+import { generateLocalFallbackMealPlan } from '../lib/ai/fallback-generator';
+
 
 interface PacientePerfilModalProps {
   paciente: Paciente | null;
@@ -58,8 +66,8 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
 }) => {
   const { user } = useAuth();
 
-  // Navegação principal e secundária
-  const [activeTab, setActiveTab] = useState<'dados' | 'consultas' | 'planos'>('dados');
+  // Navegação clínica Nutrium em 5 abas
+  const [activeTab, setActiveTab] = useState<'dados' | 'anamnese' | 'antropometria' | 'calculos' | 'planos' | 'prescricao' | 'consultas'>('anamnese');
   const [dadosTab, setDadosTab] = useState<'pessoal' | 'clinico' | 'habitos'>('pessoal');
 
   // Estados de texto para edição dos dados do paciente (evita bugs de espaço e caracteres)
@@ -86,6 +94,18 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
   const [atividadeFisicaCheck, setAtividadeFisicaCheck] = useState(false);
   const [atividadeFisicaDescTexto, setAtividadeFisicaDescTexto] = useState('');
   const [observacoesTexto, setObservacoesTexto] = useState('');
+
+  // Antropometria — Pollock 7 dobras e Circunferências
+  const [dobraPeitoral, setDobraPeitoral] = useState<string>('12');
+  const [dobraAxilar, setDobraAxilar] = useState<string>('14');
+  const [dobraTricipital, setDobraTricipital] = useState<string>('10');
+  const [dobraSubescapular, setDobraSubescapular] = useState<string>('15');
+  const [dobraAbdominal, setDobraAbdominal] = useState<string>('18');
+  const [dobraSuprailiaca, setDobraSuprailiaca] = useState<string>('16');
+  const [dobraCoxa, setDobraCoxa] = useState<string>('14');
+  const [cinturaCmTexto, setCinturaCmTexto] = useState<string>('78');
+  const [quadrilCmTexto, setQuadrilCmTexto] = useState<string>('98');
+
 
   const [savingPaciente, setSavingPaciente] = useState(false);
   const [pacienteSuccessMsg, setPacienteSuccessMsg] = useState('');
@@ -452,8 +472,12 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
       setDiaAtivoEdicao(0);
       setPlanoSuccessMsg('✨ Plano alimentar gerado com sucesso pela IA! Revise e personalize as opções abaixo.');
     } catch (err: any) {
-      console.error('Erro ao gerar plano com IA:', err);
-      setPlanoErrorMsg('Não foi possível gerar o plano com IA no momento. Deseja tentar novamente ou criar um Plano Manual?');
+      console.warn('Execução da chamada de IA externa teve instabilidade. Ativando gerador estático de contingência:', err);
+      const fallbackPlan = generateLocalFallbackMealPlan(paciente);
+      setPlanoEmEdicao(fallbackPlan);
+      setTituloPlanoEmEdicao(`Plano Alimentar Nutrium (Contingência) — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+      setDiaAtivoEdicao(0);
+      setPlanoSuccessMsg('✨ Plano alimentar gerado com sucesso pelo motor de contingência! Personalize os itens conforme necessário.');
     } finally {
       setGerandoPlanoIA(false);
     }
@@ -680,52 +704,83 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
           </div>
         ) : null}
 
-        {/* NAVEGAÇÃO PRINCIPAL EM 3 SEÇÕES */}
+        {/* NAVEGAÇÃO CLÍNICA EM 5 ABAS (NUTRIUM STYLE) */}
         <div
           style={{
             display: 'flex',
-            gap: '0.5rem',
+            gap: '0.35rem',
             marginBottom: '1.5rem',
-            background: 'rgba(15, 23, 42, 0.6)',
-            padding: '0.4rem',
+            background: '#F1F5F9',
+            padding: '0.35rem',
             borderRadius: '12px',
+            overflowX: 'auto',
           }}
         >
           <button
             type="button"
-            className={`sidebar-link ${activeTab === 'dados' ? 'active' : ''}`}
-            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px' }}
-            onClick={() => setActiveTab('dados')}
+            className={`sidebar-link ${activeTab === 'anamnese' || activeTab === 'dados' ? 'active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', minWidth: '120px', fontSize: '0.85rem' }}
+            onClick={() => setActiveTab('anamnese')}
           >
             <User className="w-4 h-4" />
-            <span>1. Dados do Paciente</span>
+            <span>1. Anamnese</span>
           </button>
 
           <button
             type="button"
-            className={`sidebar-link ${activeTab === 'consultas' ? 'active' : ''}`}
-            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px' }}
-            onClick={() => setActiveTab('consultas')}
+            className={`sidebar-link ${activeTab === 'antropometria' ? 'active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', minWidth: '130px', fontSize: '0.85rem' }}
+            onClick={() => setActiveTab('antropometria')}
           >
-            <Activity className="w-4 h-4" />
-            <span>2. Consultas ({consultas.length})</span>
+            <Scale className="w-4 h-4" />
+            <span>2. Antropometria</span>
+          </button>
+
+          <button
+            type="button"
+            className={`sidebar-link ${activeTab === 'calculos' ? 'active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', minWidth: '110px', fontSize: '0.85rem' }}
+            onClick={() => setActiveTab('calculos')}
+          >
+            <Calculator className="w-4 h-4" />
+            <span>3. Cálculos</span>
           </button>
 
           <button
             type="button"
             className={`sidebar-link ${activeTab === 'planos' ? 'active' : ''}`}
-            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px' }}
+            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', minWidth: '140px', fontSize: '0.85rem' }}
             onClick={() => setActiveTab('planos')}
           >
             <FileText className="w-4 h-4" />
-            <span>3. Planos Alimentares</span>
+            <span>4. Plano Alimentar</span>
+          </button>
+
+          <button
+            type="button"
+            className={`sidebar-link ${activeTab === 'prescricao' ? 'active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', minWidth: '120px', fontSize: '0.85rem' }}
+            onClick={() => setActiveTab('prescricao')}
+          >
+            <Printer className="w-4 h-4" />
+            <span>5. Prescrição</span>
+          </button>
+
+          <button
+            type="button"
+            className={`sidebar-link ${activeTab === 'consultas' ? 'active' : ''}`}
+            style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', minWidth: '120px', fontSize: '0.85rem' }}
+            onClick={() => setActiveTab('consultas')}
+          >
+            <Activity className="w-4 h-4" />
+            <span>Consultas ({consultas.length})</span>
           </button>
         </div>
 
         {/* ========================================================= */}
-        {/* SEÇÃO 1 — DADOS DO PACIENTE */}
+        {/* SEÇÃO 1 — ANAMNESE E DADOS DO PACIENTE */}
         {/* ========================================================= */}
-        {activeTab === 'dados' && (
+        {(activeTab === 'anamnese' || activeTab === 'dados') && (
           <div>
             {/* Abas Secundárias: Pessoal, Clínico, Hábitos */}
             <div
@@ -1526,7 +1581,230 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
         )}
 
         {/* ========================================================= */}
-        {/* SEÇÃO 3 — PLANOS ALIMENTARES */}
+        {/* SEÇÃO 2 — ANTROPOMETRIA */}
+        {/* ========================================================= */}
+        {activeTab === 'antropometria' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              <div className="meal-block-card">
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem', color: '#0F172A' }}>
+                  Dobras Cutâneas (Pollock 7 Dobras)
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Peitoral (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraPeitoral} onChange={(e) => setDobraPeitoral(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Axilar Média (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraAxilar} onChange={(e) => setDobraAxilar(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Tricipital (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraTricipital} onChange={(e) => setDobraTricipital(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Subescapular (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraSubescapular} onChange={(e) => setDobraSubescapular(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Abdominal (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraAbdominal} onChange={(e) => setDobraAbdominal(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Suprailíaca (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraSuprailiaca} onChange={(e) => setDobraSuprailiaca(e.target.value)} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Coxa (mm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={dobraCoxa} onChange={(e) => setDobraCoxa(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="meal-block-card">
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem', color: '#0F172A' }}>
+                  Composição Corporal Calculada (Siri)
+                </h3>
+                <div style={{ background: '#F0FDF9', border: '1px solid #CCFBF1', padding: '1.25rem', borderRadius: '12px', textAlign: 'center', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#0F766E', fontWeight: 700, textTransform: 'uppercase' }}>% Gordura Corporal Estimado</span>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#09B291', margin: '0.2rem 0' }}>
+                    {calculatePollock7Folds(
+                      {
+                        chest: parseFloat(dobraPeitoral) || 0,
+                        axillary: parseFloat(dobraAxilar) || 0,
+                        triceps: parseFloat(dobraTricipital) || 0,
+                        subscapular: parseFloat(dobraSubescapular) || 0,
+                        abdominal: parseFloat(dobraAbdominal) || 0,
+                        suprailiac: parseFloat(dobraSuprailiaca) || 0,
+                        thigh: parseFloat(dobraCoxa) || 0,
+                      },
+                      calcularIdade(dataNascTexto) || 30,
+                      sexoTexto?.toLowerCase().includes('masc') ? 'male' : 'female'
+                    )}%
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Protocolo Pollock 7 Dobras + Fórmula de Siri</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Circunferência Cintura (cm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={cinturaCmTexto} onChange={(e) => setCinturaCmTexto(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.78rem' }}>Circunferência Quadril (cm)</label>
+                    <input type="number" className="form-input" style={{ paddingLeft: '0.75rem' }} value={quadrilCmTexto} onChange={(e) => setQuadrilCmTexto(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* SEÇÃO 3 — CÁLCULOS ENERGÉTICOS */}
+        {/* ========================================================= */}
+        {activeTab === 'calculos' && (() => {
+          const energy = calculateEnergyRequirements({
+            gender: sexoTexto?.toLowerCase().includes('masc') ? 'male' : 'female',
+            weightKg: parseDecimal(pesoTexto) || paciente.peso_inicial || 70,
+            heightCm: (parseDecimal(alturaTexto) || paciente.altura || 1.7) * ((parseDecimal(alturaTexto) || paciente.altura || 1.7) < 3 ? 100 : 1),
+            ageYears: calcularIdade(dataNascTexto) || 30,
+            activityLevel: nivelAtividadeTexto?.toLowerCase().includes('muito') ? 'very_intense' : nivelAtividadeTexto?.toLowerCase().includes('intenso') ? 'intense' : nivelAtividadeTexto?.toLowerCase().includes('mod') ? 'moderate' : nivelAtividadeTexto?.toLowerCase().includes('leve') ? 'light' : 'sedentary',
+            goal: objetivosTexto?.toLowerCase().includes('hiper') ? 'hypertrophy' : objetivosTexto?.toLowerCase().includes('emagrec') ? 'weight_loss' : 'maintenance',
+          });
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <div className="meal-block-card">
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Taxa Metabólica Basal (TMB)</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0F172A', marginTop: '0.2rem' }}>{energy.bmr} kcal</div>
+                  <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Fórmula de Mifflin-St Jeor</span>
+                </div>
+
+                <div className="meal-block-card">
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Gasto Energético Total (GET)</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: '#3B82F6', marginTop: '0.2rem' }}>{energy.tdee} kcal</div>
+                  <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Ajustado pelo nível de atividade</span>
+                </div>
+
+                <div className="meal-block-card" style={{ background: '#F0FDF9', borderColor: '#CCFBF1' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0F766E', textTransform: 'uppercase' }}>Meta Calórica Recomendada</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: '#09B291', marginTop: '0.2rem' }}>{energy.targetCalories} kcal</div>
+                  <span style={{ fontSize: '0.75rem', color: '#0F766E' }}>Meta para o objetivo clínico</span>
+                </div>
+              </div>
+
+              <div className="meal-block-card">
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: '#0F172A' }}>
+                  Distribuição de Macronutrientes e Hidratação Diária
+                </h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                  <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#DC2626' }}>🥩 Proteínas</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: '0.2rem 0' }}>{energy.macros.proteinGrams}g</div>
+                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{energy.macros.proteinGrams * 4} kcal</span>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#D97706' }}>🍞 Carboidratos</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: '0.2rem 0' }}>{energy.macros.carbsGrams}g</div>
+                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{energy.macros.carbsGrams * 4} kcal</span>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563EB' }}>🥑 Gorduras</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: '0.2rem 0' }}>{energy.macros.fatGrams}g</div>
+                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{energy.macros.fatGrams * 9} kcal</span>
+                  </div>
+
+                  <div style={{ background: '#EFF6FF', padding: '1rem', borderRadius: '10px', border: '1px solid #DBEAFE' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1D4ED8' }}>💧 Água Diária</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1D4ED8', margin: '0.2rem 0' }}>{energy.waterMl} ml</div>
+                    <span style={{ fontSize: '0.75rem', color: '#3B82F6' }}>35ml por kg de peso corporal</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ========================================================= */}
+        {/* SEÇÃO 5 — PRESCRIÇÃO E EXPORTAÇÃO */}
+        {/* ========================================================= */}
+        {activeTab === 'prescricao' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '1rem', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>Prescrição e Exportação de Cardápio</h3>
+                <p style={{ fontSize: '0.8125rem', color: '#64748B' }}>Gere a versão final para o paciente, imprima ou envie via WhatsApp.</p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => window.print()}
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir / Gerar PDF</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    const textToCopy = selectedPlano?.conteudo || (planoEmEdicao ? formatarPlanoParaTexto(planoEmEdicao) : '');
+                    if (textToCopy) {
+                      navigator.clipboard.writeText(textToCopy);
+                      alert('Conteúdo do plano alimentar copiado para a área de transferência!');
+                    }
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>Copiar Texto</span>
+                </button>
+
+                {paciente.whatsapp && (
+                  <button
+                    type="button"
+                    className="btn-whatsapp"
+                    onClick={() => {
+                      const msg = generateWhatsAppReturnMessage(nomeTexto || paciente.nome, diasSemConsulta || 30);
+                      openWhatsAppChat(paciente.whatsapp!, msg);
+                    }}
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Enviar no WhatsApp</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Paper Sheet Preview */}
+            <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+              <div style={{ borderBottom: '2px solid #09B291', paddingBottom: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#09B291' }}>NuFey — Prescrição Nutricional</h2>
+                  <p style={{ fontSize: '0.85rem', color: '#64748B' }}>Paciente: <strong>{nomeTexto || paciente.nome}</strong> | Data: {new Date().toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#64748B' }}>
+                  <div>Profissional: {user?.name || 'Nutricionista'}</div>
+                  <div>CRN: Sincronizado</div>
+                </div>
+              </div>
+
+              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'sans-serif', fontSize: '0.9rem', color: '#1E293B', lineHeight: 1.6 }}>
+                {selectedPlano?.conteudo || (planoEmEdicao ? formatarPlanoParaTexto(planoEmEdicao) : 'Nenhum plano alimentar selecionado ou gerado. Clique na aba "4. Plano Alimentar" para gerar um cardápio com IA.')}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* SEÇÃO 4 — PLANOS ALIMENTARES */}
         {/* ========================================================= */}
         {activeTab === 'planos' && (
           <div>

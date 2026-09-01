@@ -6,6 +6,8 @@ import { PacientesView } from './PacientesView';
 import { PacientePerfilModal } from './PacientePerfilModal';
 import type { DashboardMetrics, Paciente } from '../lib/neonData';
 import { getDashboardMetrics, seedInitialDataIfEmpty } from '../lib/neonData';
+import { generateWhatsAppReturnMessage, openWhatsAppChat } from '../lib/whatsapp-formatter';
+
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -193,18 +195,20 @@ export const Dashboard: React.FC = () => {
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             {item.paciente.whatsapp && (
-                              <a
-                                href={`https://wa.me/55${item.paciente.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${item.paciente.nome.split(' ')[0]}! Tudo bem? Passando para acompanhar seus resultados e agendar sua próxima consulta.`)}`}
-                                target="_blank"
-                                rel="noreferrer"
+                              <button
+                                type="button"
                                 className="btn-whatsapp"
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const msg = generateWhatsAppReturnMessage(item.paciente.nome, item.diasSemConsulta);
+                                  openWhatsAppChat(item.paciente.whatsapp!, msg);
+                                }}
                                 title={`Enviar mensagem no WhatsApp para ${item.paciente.nome}`}
                                 id={`btn-whatsapp-${item.paciente.id}`}
                               >
                                 <MessageCircle className="w-4 h-4" />
                                 <span>Enviar WhatsApp</span>
-                              </a>
+                              </button>
                             )}
                             <div className="item-action">
                               <span className="action-tag">Ver Perfil</span>
