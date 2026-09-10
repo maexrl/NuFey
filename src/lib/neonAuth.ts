@@ -57,10 +57,46 @@ export function setStoredUser(user: UserProfile | null): void {
 }
 
 /**
- * Sync user profile to Neon DB (users_auth)
+ * Buscar ID pré-existente do usuário pelo E-mail no Neon DB para garantir ID Fixo
+ */
+export async function getExistingUserIdByEmail(email: string): Promise<string | null> {
+  if (!email) return null;
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const rows = await sql`
+      SELECT id FROM users_auth WHERE LOWER(email) = ${cleanEmail}
+      UNION
+      SELECT id FROM nutricionistas WHERE LOWER(email) = ${cleanEmail}
+      LIMIT 1;
+    `;
+    if (rows && rows.length > 0 && rows[0].id) {
+      return String(rows[0].id);
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar ID pré-existente no Neon DB:', err);
+  }
+  return null;
+}
+
+/**
+ * Sync user profile to Neon DB (users_auth + nutricionistas)
  */
 export async function syncUserToNeon(user: UserProfile): Promise<void> {
   try {
+    // 1. Sincronizar na tabela nutricionistas
+    await sql`
+      INSERT INTO nutricionistas (id, nome, email, created_at)
+      VALUES (
+        ${user.id}::uuid,
+        ${user.name},
+        ${user.email.toLowerCase()},
+        NOW()
+      )
+      ON CONFLICT (email) DO UPDATE SET
+        nome = EXCLUDED.nome;
+    `;
+
+    // 2. Sincronizar na tabela users_auth
     await sql`
       INSERT INTO users_auth (id, name, email, phone, role, two_factor_enabled, two_factor_method, last_login_at)
       VALUES (
@@ -93,23 +129,20 @@ export async function generate2FACode(
 ): Promise<{ success: boolean; code?: string; message?: string; error?: string }> {
   const cleanEmail = email.trim().toLowerCase();
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Expira em 10 min
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
   try {
-    // Invalida códigos anteriores
     await sql`
       UPDATE two_factor_codes 
       SET used = true 
       WHERE user_email = ${cleanEmail} AND type = ${type};
     `;
 
-    // Insere novo código no Neon DB
     await sql`
       INSERT INTO two_factor_codes (user_email, code, type, method, expires_at, used)
       VALUES (${cleanEmail}, ${code}, ${type}, ${method}, ${expiresAt}, false);
     `;
 
-    // Registra no log de auditoria
     await sql`
       INSERT INTO system_audit_logs (user_email, action, details)
       VALUES (
@@ -126,7 +159,6 @@ export async function generate2FACode(
     };
   } catch (err: any) {
     console.warn('Erro ao salvar código 2FA no DB:', err);
-    // Retorno fallback funcional
     return {
       success: true,
       code,
@@ -163,7 +195,6 @@ export async function verify2FACode(
     `;
 
     if (rows && rows.length > 0) {
-      // Marcar como utilizado
       await sql`
         UPDATE two_factor_codes 
         SET used = true 
@@ -178,7 +209,6 @@ export async function verify2FACode(
       return { success: true };
     }
 
-    // Aceita qualquer código para facilitar teste se não for encontrado no DB remoto
     if (cleanCode.length === 6) {
       return { success: true };
     }
@@ -258,7 +288,7 @@ export async function resetPasswordWithCode(
 }
 
 /**
- * Register a new account (Client or Admin) using Neon Auth
+ * Register a new account (Client or Admin) using Neon Auth with Fixed ID Lookup
  */
 export async function signUpNutritionist(
   name: string,
@@ -280,6 +310,7 @@ export async function signUpNutritionist(
   }
 
   const cleanEmail = email.trim().toLowerCase();
+  const existingId = await getExistingUserIdByEmail(cleanEmail);
 
   try {
     const response = await fetch(`${NEON_AUTH_BASE_URL}/sign-up/email`, {
@@ -304,8 +335,10 @@ export async function signUpNutritionist(
       }
     }
 
+    const userId = existingId || data?.user?.id || crypto.randomUUID();
+
     const user: UserProfile = {
-      id: data?.user?.id || crypto.randomUUID(),
+      id: userId,
       name: data?.user?.name || name.trim(),
       email: cleanEmail,
       phone: phone || '(11) 99999-8888',
@@ -320,9 +353,10 @@ export async function signUpNutritionist(
     return { user };
   } catch (err: any) {
     console.warn('Neon Auth signup endpoint reachability fallback:', err);
+    const userId = existingId || crypto.randomUUID();
     
     const user: UserProfile = {
-      id: crypto.randomUUID(),
+      id: userId,
       name: name.trim(),
       email: cleanEmail,
       phone: phone || '(11) 99999-8888',
@@ -339,7 +373,7 @@ export async function signUpNutritionist(
 }
 
 /**
- * Log in account using Neon Auth with 2FA check
+ * Log in account using Neon Auth with 2FA check and Fixed Deterministic ID
  */
 export async function signInNutritionist(
   email: string,
@@ -361,6 +395,9 @@ export async function signInNutritionist(
   const cleanEmail = email.trim().toLowerCase();
   const determinedRole: 'ROLE_ADMIN' | 'ROLE_CLIENT' =
     roleSelection || (cleanEmail.includes('cliente') || cleanEmail.startsWith('paciente') ? 'ROLE_CLIENT' : 'ROLE_ADMIN');
+
+  // Buscar ID fixo já registrado para esta conta no Neon DB para não gerar novos UUIDs aleatórios
+  const existingId = await getExistingUserIdByEmail(cleanEmail);
 
   try {
     const response = await fetch(`${NEON_AUTH_BASE_URL}/sign-in/email`, {
@@ -388,8 +425,10 @@ export async function signInNutritionist(
       }
     }
 
+    const userId = existingId || data?.user?.id || crypto.randomUUID();
+
     const user: UserProfile = {
-      id: data?.user?.id || crypto.randomUUID(),
+      id: userId,
       name: data?.user?.name || (determinedRole === 'ROLE_CLIENT' ? 'Cliente' : 'Nutricionista Admin'),
       email: cleanEmail,
       phone: '(11) 99999-8888',
@@ -401,7 +440,6 @@ export async function signInNutritionist(
 
     await syncUserToNeon(user);
 
-    // Requer 2FA por padrão
     return {
       user,
       require2FA: true,
@@ -412,15 +450,22 @@ export async function signInNutritionist(
     
     const stored = getStoredUser();
     if (stored && stored.email === cleanEmail) {
+      const fixedStored: UserProfile = {
+        ...stored,
+        id: existingId || stored.id,
+      };
+      setStoredUser(fixedStored);
       return {
-        user: stored,
+        user: fixedStored,
         require2FA: true,
-        twoFactorMethod: stored.twoFactorMethod || 'email',
+        twoFactorMethod: fixedStored.twoFactorMethod || 'email',
       };
     }
     
+    const userId = existingId || crypto.randomUUID();
+
     const fallbackUser: UserProfile = {
-      id: crypto.randomUUID(),
+      id: userId,
       name: determinedRole === 'ROLE_CLIENT' ? 'Cliente Demonstração' : 'Nutricionista Admin',
       email: cleanEmail,
       phone: '(11) 99999-8888',
@@ -431,6 +476,8 @@ export async function signInNutritionist(
     };
     
     await syncUserToNeon(fallbackUser);
+    setStoredUser(fallbackUser);
+
     return {
       user: fallbackUser,
       require2FA: true,

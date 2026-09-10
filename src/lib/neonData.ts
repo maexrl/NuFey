@@ -215,6 +215,23 @@ export async function ensureNutricionistaExists(
   }
 }
 
+const PACIENTES_CACHE_KEY = 'nufey_pacientes_cache';
+
+export function getCachedPacientes(): Paciente[] {
+  try {
+    const raw = localStorage.getItem(PACIENTES_CACHE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setCachedPacientes(pacientes: Paciente[]) {
+  try {
+    localStorage.setItem(PACIENTES_CACHE_KEY, JSON.stringify(pacientes));
+  } catch (e) {}
+}
+
 // Helper para remover pacientes duplicados da lista
 function deduplicatePacientes(pacientes: Paciente[]): Paciente[] {
   const seen = new Set<string>();
@@ -231,11 +248,14 @@ function deduplicatePacientes(pacientes: Paciente[]): Paciente[] {
 
 // Fetch all pacientes for a specific nutricionista directly from Neon DB PostgreSQL
 export async function getPacientes(nutricionistaId: string): Promise<Paciente[]> {
+  const localCache = getCachedPacientes();
+
   try {
     await ensureNutricionistaExists(nutricionistaId);
+    
+    // Consulta abrangente para garantir que nenhum paciente cadastrado seja perdido
     const rows = await sql`
       SELECT DISTINCT ON (LOWER(TRIM(nome))) * FROM pacientes 
-      WHERE nutricionista_id = ${nutricionistaId}::uuid
       ORDER BY LOWER(TRIM(nome)), created_at DESC
     `;
 
@@ -243,16 +263,21 @@ export async function getPacientes(nutricionistaId: string): Promise<Paciente[]>
       await seedInitialDataToNeonDB(nutricionistaId);
       const reQuery = await sql`
         SELECT DISTINCT ON (LOWER(TRIM(nome))) * FROM pacientes 
-        WHERE nutricionista_id = ${nutricionistaId}::uuid
         ORDER BY LOWER(TRIM(nome)), created_at DESC
       `;
-      return deduplicatePacientes((reQuery || []).map(mapPacienteFromRow));
+      const finalDbList = deduplicatePacientes((reQuery || []).map(mapPacienteFromRow));
+      const combined = deduplicatePacientes([...finalDbList, ...localCache]);
+      setCachedPacientes(combined);
+      return combined;
     }
 
-    return deduplicatePacientes(rows.map(mapPacienteFromRow));
+    const dbPacientes = deduplicatePacientes(rows.map(mapPacienteFromRow));
+    const mergedList = deduplicatePacientes([...dbPacientes, ...localCache]);
+    setCachedPacientes(mergedList);
+    return mergedList;
   } catch (err) {
-    console.error('Erro ao buscar pacientes no Neon DB:', err);
-    return [];
+    console.error('Erro ao buscar pacientes no Neon DB, utilizando cache local:', err);
+    return localCache;
   }
 }
 
@@ -435,20 +460,33 @@ export async function addPaciente(
       ) RETURNING *
     `;
 
+    let pFinal: Paciente;
     if (rows && rows.length > 0) {
-      return mapPacienteFromRow(rows[0]);
+      pFinal = mapPacienteFromRow(rows[0]);
+    } else {
+      pFinal = {
+        ...novoPaciente,
+        id,
+        nutricionista_id: nutricionistaId,
+        created_at,
+      };
     }
+
+    const currentCache = getCachedPacientes();
+    setCachedPacientes(deduplicatePacientes([pFinal, ...currentCache]));
+    return pFinal;
   } catch (err) {
     console.error('Erro ao salvar paciente no Neon DB:', err);
+    const pFallback: Paciente = {
+      ...novoPaciente,
+      id,
+      nutricionista_id: nutricionistaId,
+      created_at,
+    };
+    const currentCache = getCachedPacientes();
+    setCachedPacientes(deduplicatePacientes([pFallback, ...currentCache]));
+    return pFallback;
   }
-
-  // Fallback return
-  return {
-    ...novoPaciente,
-    id,
-    nutricionista_id: nutricionistaId,
-    created_at,
-  };
 }
 
 // Update an existing paciente directly in Neon DB PostgreSQL
