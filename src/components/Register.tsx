@@ -11,6 +11,7 @@ export const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'ROLE_ADMIN' | 'ROLE_CLIENT'>('ROLE_ADMIN');
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export const Register: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await register(name, email, password);
+      const res = await register(name, email, password, selectedRole);
       if (!res.success) {
         setErrorMessage(res.error || 'Falha ao criar conta. Tente novamente.');
       }
@@ -54,7 +55,7 @@ export const Register: React.FC = () => {
 
   return (
     <div className="auth-card">
-      <Logo subtitle="Crie sua conta de Nutricionista no NuFey" />
+      <Logo subtitle="Crie sua conta no portal NuFey" />
 
       {errorMessage && (
         <div className="alert-error" role="alert">
@@ -64,6 +65,48 @@ export const Register: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit}>
+        {/* Seleção do Nível de Acesso (ROLE_ADMIN vs ROLE_CLIENT) */}
+        <div className="role-selector-toggle" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', background: 'rgba(255, 255, 255, 0.05)', padding: '4px', borderRadius: '12px' }}>
+          <button
+            type="button"
+            className={`btn-role-tab ${selectedRole === 'ROLE_ADMIN' ? 'active' : ''}`}
+            onClick={() => setSelectedRole('ROLE_ADMIN')}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0.75rem',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: selectedRole === 'ROLE_ADMIN' ? 'var(--primary)' : 'transparent',
+              color: selectedRole === 'ROLE_ADMIN' ? '#000' : 'var(--text-muted)',
+              transition: 'all 0.2s',
+            }}
+          >
+            Administrador (Nutri)
+          </button>
+          <button
+            type="button"
+            className={`btn-role-tab ${selectedRole === 'ROLE_CLIENT' ? 'active' : ''}`}
+            onClick={() => setSelectedRole('ROLE_CLIENT')}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0.75rem',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: selectedRole === 'ROLE_CLIENT' ? '#38BDF8' : 'transparent',
+              color: selectedRole === 'ROLE_CLIENT' ? '#000' : 'var(--text-muted)',
+              transition: 'all 0.2s',
+            }}
+          >
+            Usuário (Paciente)
+          </button>
+        </div>
+
         <div className="form-group">
           <label htmlFor="reg-name" className="form-label">
             Nome completo
@@ -73,7 +116,7 @@ export const Register: React.FC = () => {
               id="reg-name"
               type="text"
               className="form-input"
-              placeholder="Dra. Juliana Silva"
+              placeholder={selectedRole === 'ROLE_ADMIN' ? 'Dra. Juliana Silva' : 'João Santos'}
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
@@ -86,14 +129,14 @@ export const Register: React.FC = () => {
 
         <div className="form-group">
           <label htmlFor="reg-email" className="form-label">
-            E-mail profissional
+            {selectedRole === 'ROLE_ADMIN' ? 'E-mail profissional' : 'E-mail do paciente'}
           </label>
           <div className="input-wrapper">
             <input
               id="reg-email"
               type="email"
               className="form-input"
-              placeholder="juliana.nutri@exemplo.com"
+              placeholder="seu.email@exemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -158,7 +201,7 @@ export const Register: React.FC = () => {
             <span className="spinner" />
           ) : (
             <>
-              Criar conta <UserPlus className="w-5 h-5" />
+              Criar conta ({selectedRole === 'ROLE_ADMIN' ? 'Admin' : 'Usuário'}) <UserPlus className="w-5 h-5" />
             </>
           )}
         </button>
