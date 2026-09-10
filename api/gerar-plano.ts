@@ -20,27 +20,27 @@ export const planoSchema: ResponseSchema = {
               cafe_da_manha: {
                 type: SchemaType.ARRAY,
                 items: { type: SchemaType.STRING },
-                description: '5 opções saudáveis e práticas para o café da manhã',
+                description: 'Opções saudáveis com porções e horários para o café da manhã',
               },
               lanche_manha: {
                 type: SchemaType.ARRAY,
                 items: { type: SchemaType.STRING },
-                description: '5 opções saudáveis para o lanche da manhã',
+                description: 'Opções saudáveis com porções para o lanche da manhã',
               },
               almoco: {
                 type: SchemaType.ARRAY,
                 items: { type: SchemaType.STRING },
-                description: '5 opções saudáveis e completas para o almoço',
+                description: 'Opções completas e balanceadas para o almoço',
               },
               lanche_tarde: {
                 type: SchemaType.ARRAY,
                 items: { type: SchemaType.STRING },
-                description: '5 opções saudáveis para o lanche da tarde',
+                description: 'Opções saudáveis para o lanche da tarde',
               },
               jantar: {
                 type: SchemaType.ARRAY,
                 items: { type: SchemaType.STRING },
-                description: '5 opções saudáveis e nutritivas para o jantar',
+                description: 'Opções leves e nutritivas para o jantar',
               },
             },
             required: ['cafe_da_manha', 'lanche_manha', 'almoco', 'lanche_tarde', 'jantar'],
@@ -49,42 +49,59 @@ export const planoSchema: ResponseSchema = {
         required: ['dia', 'refeicoes'],
       },
     },
+    resumo_nutricional: {
+      type: SchemaType.OBJECT,
+      description: 'Resumo nutricional diário estimado',
+      properties: {
+        calorias_totais: { type: SchemaType.NUMBER, description: 'Total de calorias diárias recomendadas (kcal)' },
+        carboidratos_g: { type: SchemaType.NUMBER, description: 'Total de carboidratos diários (g)' },
+        proteinas_g: { type: SchemaType.NUMBER, description: 'Total de proteínas diárias (g)' },
+        gorduras_g: { type: SchemaType.NUMBER, description: 'Total de gorduras diárias (g)' },
+      },
+      required: ['calorias_totais', 'carboidratos_g', 'proteinas_g', 'gorduras_g'],
+    },
+    lista_compras: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: 'Lista de compras semanal acumulada a partir dos ingredientes do plano',
+    },
   },
   required: ['plano_semanal'],
 };
 
-export async function gerarPlanoComGemini(dadosPacienteFormatados: string, apiKey: string, pacienteObj?: any) {
-  if (apiKey && apiKey.trim().length > 10 && !apiKey.startsWith('AQ.')) {
-    const genAI = new GoogleGenerativeAI(apiKey.trim());
+export async function gerarPlanoComGemini(
+  dadosPacienteFormatados: string,
+  apiKey: string,
+  pacienteObj?: any,
+  customSystemPrompt?: string
+) {
+  const effectiveApiKey = (apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '').trim();
 
-    const prompt = `Você é um nutricionista clínico profissional especialista na culinária e rotina brasileira.
-Gere um plano alimentar semanal completo, saudável e diversificado com base nos dados do paciente fornecidos abaixo.
+  if (effectiveApiKey.length > 5) {
+    const genAI = new GoogleGenerativeAI(effectiveApiKey);
 
-Dados do Paciente (Metas, Alergias, Restrições e Histórico):
+    const defaultBasePrompt = `Você é um nutricionista clínico especialista em nutrição individualizada.
+Sua missão é ler com atenção o RELATÓRIO DO PACIENTE abaixo e prescrever um PLANO ALIMENTAR RESUMIDO, ALTAMENTE EFICAZ E EXCLUSIVO para as características deste paciente.
+
+ATENÇÃO: CADA PACIENTE É ÚNICO. VOCÊ DEVE ADAPTAR TODO O CARDÁPIO ÁS ESPECIFICAÇÕES INDIVIDUAIS DELE (OBJETIVOS, PESO, ALTURA, PATOLOGIAS, ALERGIAS E ROTINA).
+
+=======================================================
+RELATÓRIO / ANAMNESE COMPLETA DO PACIENTE:
 ${dadosPacienteFormatados}
+=======================================================`;
 
-# Regras Críticas de Execução:
-- Você deve responder APENAS e estritamente o objeto JSON solicitado.
-- Não inclua blocos de código markdown (como \`\`\`json ... \`\`\`), explicações, introduções ou textos complementares.
-- Adapte o cardápio rigorosamente a quaisquer alergias ou restrições descritas nos dados.
-- Utilize alimentos comuns, acessíveis e culturalmente aceitos no Brasil.
-- Evite repetições monótonas de alimentos nos dias seguidos.
+    const systemInstruction = customSystemPrompt ? `${customSystemPrompt}\n\n${dadosPacienteFormatados}` : defaultBasePrompt;
 
-O formato do JSON retornado deve seguir exatamente esta estrutura:
-{
-  "plano_semanal": [
-    {
-      "dia": "Segunda-feira",
-      "refeicoes": {
-        "cafe_da_manha": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
-        "lanche_manha": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
-        "almoco": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
-        "lanche_tarde": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
-        "jantar": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"]
-      }
-    }
-  ]
-}`;
+    const prompt = `${systemInstruction}
+
+# Regras Críticas de Personalização e Execução Clínica:
+- Responda APENAS e estritamente o objeto JSON estruturado correspondente ao esquema.
+- Não inclua blocos de código markdown (como \`\`\`json ... \`\`\`), explicações ou textos fora do JSON.
+- RESPEITE RIGOROSAMENTE todas as ALERGIAS e RESTRIÇÕES alimentares informadas no relatório. NENHUM ingrediente proibido pode aparecer no cardápio!
+- Se houver patologias (ex: diabetes, hipertensão), ajuste os nutrientes especificamente para a condição médica do paciente.
+- Especifique porções claras em gramas/medidas caseiras práticas brasileiras e horários adaptados aos hábitos do paciente.
+- Calcule e forneça o resumo nutricional diário estimado (calorias totais em kcal, carboidratos em g, proteínas em g e gorduras em g) sob medida para a meta biométrica do paciente.
+- Forneça uma lista de compras semanal resumida e acumulada a partir dos alimentos do plano deste paciente.`;
 
     const candidateModels = [
       'gemini-1.5-flash',
@@ -111,32 +128,38 @@ O formato do JSON retornado deve seguir exatamente esta estrutura:
           return parsedJson;
         }
       } catch (err: any) {
-        console.warn(`Tentativa com modelo ${modelName} falhou:`, err?.message || err);
+        console.warn(`Tentativa de geração Gemini com modelo ${modelName} falhou:`, err?.message || err);
       }
     }
   }
 
-  // Motor de Inteligência Artificial local adaptado ao paciente
+  // Motor de Inteligência Artificial local adaptado ao paciente em caso de fallback
   return generateLocalFallbackMealPlan(pacienteObj || { dadosPaciente: dadosPacienteFormatados });
 }
 
-// Handler padrão para serverless Vercel / Node
+// Handler padrão para serverless Vercel / Node / Vite Middleware
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido. Utilize POST.' });
   }
 
   try {
-    const apiKey = process.env.GOOGLE_API_KEY || '';
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { dadosPaciente, paciente } = body || {};
+    const { dadosPaciente, paciente, apiKeyCustom, customSystemPrompt } = body || {};
+    const apiKey = apiKeyCustom || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
 
-    const resultado = await gerarPlanoComGemini(dadosPaciente || '', apiKey, paciente);
+    const resultado = await gerarPlanoComGemini(
+      dadosPaciente || (typeof paciente === 'string' ? paciente : JSON.stringify(paciente || {})),
+      apiKey,
+      paciente,
+      customSystemPrompt
+    );
     return res.status(200).json(resultado);
   } catch (error: any) {
-    console.error('Erro na função /api/gerar-plano, executando motor estático:', error);
+    console.error('Erro na rota de API Gemini (/api/gerar-plano), executando motor local:', error);
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const fallback = generateLocalFallbackMealPlan(body?.paciente || {});
     return res.status(200).json(fallback);
   }
 }
+

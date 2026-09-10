@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       {
         name: 'api-serverless-middleware',
         configureServer(server) {
-          server.middlewares.use('/api/gerar-plano', async (req, res) => {
+          const handleApiRoute = async (req: any, res: any) => {
             if (req.method !== 'POST') {
               res.statusCode = 405;
               res.setHeader('Content-Type', 'application/json');
@@ -29,26 +29,26 @@ export default defineConfig(({ mode }) => {
             req.on('end', async () => {
               try {
                 const parsed = body ? JSON.parse(body) : {};
-                const { dadosPaciente } = parsed;
-                if (!dadosPaciente) {
-                  res.statusCode = 400;
-                  res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify({ error: 'Dados do paciente não fornecidos.' }));
-                  return;
-                }
+                const { dadosPaciente, paciente, apiKeyCustom, customSystemPrompt } = parsed;
+                const effectiveKey = apiKeyCustom || apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
 
-                const resultado = await gerarPlanoComGemini(dadosPaciente, apiKey);
+                const promptText = dadosPaciente || (typeof paciente === 'string' ? paciente : JSON.stringify(paciente || {}));
+                const resultado = await gerarPlanoComGemini(promptText, effectiveKey, paciente, customSystemPrompt);
+
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify(resultado));
               } catch (err: any) {
-                console.error('Erro na rota /api/gerar-plano:', err);
+                console.error('Erro na rota API de geração do plano:', err);
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: err.message || 'Erro ao gerar plano alimentar.' }));
               }
             });
-          });
+          };
+
+          server.middlewares.use('/api/gerar-plano', handleApiRoute);
+          server.middlewares.use('/api/generate-meal-plan', handleApiRoute);
         },
       },
       VitePWA({
@@ -129,6 +129,17 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'neon-auth-cache',
                 expiration: { maxEntries: 20, maxAgeSeconds: 60 * 5 },
                 networkTimeoutSeconds: 10,
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              // Neon PostgreSQL Database SQL API — NetworkFirst para garantir persistência atualizada
+              urlPattern: /^https:\/\/.*\.neon\.tech\/.*$/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'neon-db-cache',
+                expiration: { maxEntries: 50, maxAgeSeconds: 60 * 2 },
+                networkTimeoutSeconds: 8,
                 cacheableResponse: { statuses: [0, 200] },
               },
             },

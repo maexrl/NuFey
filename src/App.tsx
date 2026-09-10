@@ -4,6 +4,8 @@ import { Login } from './components/Login';
 import { Register } from './components/Register';
 import { Dashboard } from './components/Dashboard';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { TwoFactorModal } from './components/TwoFactorModal';
+import { ForgotPasswordModal } from './components/ForgotPasswordModal';
 
 const AppContent: React.FC = () => {
   const { currentView, loading, isAuthenticated } = useAuth();
@@ -32,6 +34,11 @@ const AppContent: React.FC = () => {
           <Login />
         )}
       </div>
+
+      {/* Global Modals */}
+      <TwoFactorModal />
+      <ForgotPasswordModal />
+
       {/* PWA install prompt — appears after 3s if not yet installed */}
       <PWAInstallPrompt />
     </>

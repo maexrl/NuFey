@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, AlertTriangle, ChevronRight, UserX, RefreshCw, CheckCircle2, MessageCircle } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, ChevronRight, UserX, RefreshCw, CheckCircle2, MessageCircle, Settings, User, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar } from './Sidebar';
 import { PacientesView } from './PacientesView';
 import { PacientePerfilModal } from './PacientePerfilModal';
+import { ClientDashboard } from './ClientDashboard';
+import { AdminSettingsModal } from './AdminSettingsModal';
+import { AdminDashboardView } from './AdminDashboardView';
 import type { DashboardMetrics, Paciente } from '../lib/neonData';
-import { getDashboardMetrics, seedInitialDataIfEmpty } from '../lib/neonData';
+import { getDashboardMetrics, getPacientes } from '../lib/neonData';
 import { generateWhatsAppReturnMessage, openWhatsAppChat } from '../lib/whatsapp-formatter';
 
-
 export const Dashboard: React.FC = () => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pacientes'>('dashboard');
+  const { user, switchRole } = useAuth();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pacientes' | 'admin'>('dashboard');
   const [loadingMetrics, setLoadingMetrics] = useState<boolean>(true);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalPacientesAtivos: 0,
     consultasDaSemana: 0,
@@ -28,10 +31,12 @@ export const Dashboard: React.FC = () => {
     if (!user) return;
     setLoadingMetrics(true);
     try {
-      const data = await getDashboardMetrics(user.id);
+      const [data, listaPacientes] = await Promise.all([
+        getDashboardMetrics(user.id),
+        getPacientes(user.id),
+      ]);
       setMetrics(data);
-      const { pacientes } = seedInitialDataIfEmpty(user.id);
-      setAllPacientes(pacientes);
+      setAllPacientes(listaPacientes);
     } catch (err) {
       console.error('Erro ao carregar métricas do Neon:', err);
     } finally {
@@ -40,8 +45,15 @@ export const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData();
+    if (user && user.role !== 'ROLE_CLIENT') {
+      loadData();
+    }
   }, [user]);
+
+  // ROTEAMENTO RBAC: Se for cliente (ROLE_CLIENT), abre o Painel do Cliente
+  if (user?.role === 'ROLE_CLIENT') {
+    return <ClientDashboard />;
+  }
 
   const handleOpenPacienteProfile = (paciente: Paciente, diasSemConsulta?: number) => {
     setSelectedPaciente(paciente);
@@ -55,11 +67,14 @@ export const Dashboard: React.FC = () => {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         totalPacientesCount={metrics.totalPacientesAtivos}
+        onOpenSettings={() => setShowSettingsModal(true)}
       />
 
       {/* Área Principal de Conteúdo */}
       <main className="dashboard-main-content">
-        {activeTab === 'pacientes' ? (
+        {activeTab === 'admin' ? (
+          <AdminDashboardView />
+        ) : activeTab === 'pacientes' ? (
           <PacientesView
             pacientes={allPacientes}
             pacientesSemRetorno={metrics.pacientesSemRetorno}
@@ -72,17 +87,45 @@ export const Dashboard: React.FC = () => {
             <div className="dashboard-welcome-banner">
               <div>
                 <div className="neon-connected-pill">
-                  <CheckCircle2 className="w-4 h-4" /> Dados sincronizados via Neon DB
+                  <CheckCircle2 className="w-4 h-4" /> Dados sincronizados via Neon DB & API Gemini
                 </div>
                 <h1 className="welcome-title">
                   Olá, {user?.name?.split(' ')[0] || 'Nutricionista'}! ✨
                 </h1>
                 <p className="welcome-subtitle">
-                  Seu consultório está sincronizado. Veja o resumo de hoje:
+                  Painel Administrativo | Gerencie pacientes, crie planos alimentares e configure a IA Gemini.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setActiveTab('admin')}
+                  style={{ border: '1px solid #818CF8', color: '#A5B4FC' }}
+                  title="Abrir Área de Administrador"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Área Admin 🛡️</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => switchRole('ROLE_CLIENT')}
+                  title="Testar visão do Cliente (ROLE_CLIENT)"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Modo Cliente 👤</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowSettingsModal(true)}
+                  title="Configurar Gemini API"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Configurações Gemini</span>
+                </button>
                 <button
                   type="button"
                   className="btn-secondary"
@@ -161,7 +204,6 @@ export const Dashboard: React.FC = () => {
                   {loadingMetrics ? (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Carregando dados...</p>
                   ) : metrics.pacientesSemRetorno.length === 0 ? (
-                    /* Se não houver pacientes sem retorno, exibir a mensagem "Nenhum paciente sem retorno no momento" */
                     <div className="empty-sem-retorno-box">
                       <UserX className="w-8 h-8" style={{ color: '#4ADE80', opacity: 0.8 }} />
                       <p className="empty-sem-retorno-text">
@@ -169,7 +211,6 @@ export const Dashboard: React.FC = () => {
                       </p>
                     </div>
                   ) : (
-                    /* Lista com o nome dos pacientes cuja última consulta foi há mais de 30 dias */
                     <div className="sem-retorno-list">
                       {metrics.pacientesSemRetorno.map((item) => (
                         <div
@@ -234,6 +275,12 @@ export const Dashboard: React.FC = () => {
           setSelectedPaciente(null);
           setSelectedSemRetornoDays(undefined);
         }}
+      />
+
+      {/* Modal de Configurações da API Gemini */}
+      <AdminSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
     </div>
   );

@@ -463,10 +463,18 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
         dadosPaciente: dadosPacienteFormatados,
       };
 
+      const savedKey = localStorage.getItem('nufey_custom_gemini_key') || '';
+      const savedPrompt = localStorage.getItem('nufey_custom_gemini_prompt') || '';
+
       const response = await fetch('/api/gerar-plano', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dadosPaciente: dadosPacienteFormatados, paciente: pacienteData }),
+        body: JSON.stringify({
+          dadosPaciente: dadosPacienteFormatados,
+          paciente: pacienteData,
+          apiKeyCustom: savedKey,
+          customSystemPrompt: savedPrompt,
+        }),
       });
 
       let data: any = null;
@@ -479,10 +487,28 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
         data = generateLocalFallbackMealPlan(pacienteData);
       }
 
+      data.status = data.status || 'Aprovado';
       setPlanoEmEdicao(data);
-      setTituloPlanoEmEdicao(`Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+      const tituloIa = `Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`;
+      setTituloPlanoEmEdicao(tituloIa);
       setDiaAtivoEdicao(0);
-      setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso por Inteligência Artificial para ${nomeTexto || paciente.nome}! Revise e personalize as opções abaixo.`);
+      setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso pela API Gemini do Google para ${nomeTexto || paciente.nome}! Revise, ajuste os alimentos ou altere o status.`);
+
+      if (user && paciente) {
+        try {
+          const textoFormatado = formatarPlanoParaTexto(data);
+          const novoPlanoSalvo = await addPlanoAlimentar(user.id, paciente.id, {
+            titulo: tituloIa,
+            conteudo: textoFormatado,
+            plano_estruturado: data,
+            status: 'Aprovado',
+          });
+          await loadConsultasAndPlanos();
+          setSelectedPlano(novoPlanoSalvo);
+        } catch (saveErr) {
+          console.warn('Erro ao auto-salvar plano no Neon DB:', saveErr);
+        }
+      }
     } catch (err: any) {
       console.warn('Execução do motor de IA gerou o plano com personalização clínica:', err);
       const pacienteData = {
@@ -495,9 +521,26 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
       };
       const fallbackPlan = generateLocalFallbackMealPlan(pacienteData);
       setPlanoEmEdicao(fallbackPlan);
-      setTituloPlanoEmEdicao(`Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`);
+      const tituloFallback = `Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`;
+      setTituloPlanoEmEdicao(tituloFallback);
       setDiaAtivoEdicao(0);
       setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso por Inteligência Artificial para ${nomeTexto || paciente.nome}! Personalize os itens conforme necessário.`);
+
+      if (user && paciente) {
+        try {
+          const textoFormatado = formatarPlanoParaTexto(fallbackPlan);
+          const novoPlanoSalvo = await addPlanoAlimentar(user.id, paciente.id, {
+            titulo: tituloFallback,
+            conteudo: textoFormatado,
+            plano_estruturado: fallbackPlan,
+            status: 'Aprovado',
+          });
+          await loadConsultasAndPlanos();
+          setSelectedPlano(novoPlanoSalvo);
+        } catch (saveErr) {
+          console.warn('Erro ao auto-salvar plano no Neon DB:', saveErr);
+        }
+      }
     } finally {
       setGerandoPlanoIA(false);
     }

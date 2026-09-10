@@ -1,18 +1,20 @@
 import React from 'react';
-import { LayoutDashboard, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 
 interface SidebarProps {
-  activeTab: 'dashboard' | 'pacientes';
-  onSelectTab: (tab: 'dashboard' | 'pacientes') => void;
+  activeTab: 'dashboard' | 'pacientes' | 'admin';
+  onSelectTab: (tab: 'dashboard' | 'pacientes' | 'admin') => void;
   totalPacientesCount?: number;
+  onOpenSettings?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   totalPacientesCount = 0,
+  onOpenSettings,
 }) => {
   const { user, logout } = useAuth();
 
@@ -56,6 +58,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="sidebar-badge">{totalPacientesCount}</span>
           )}
         </button>
+
+        {/* Aba Área Admin visível para Administradores */}
+        <button
+          type="button"
+          className={`sidebar-link ${activeTab === 'admin' ? 'active' : ''}`}
+          onClick={() => onSelectTab('admin')}
+          id="nav-admin"
+          style={{
+            color: activeTab === 'admin' ? '#818CF8' : undefined,
+          }}
+        >
+          <ShieldCheck className="sidebar-link-icon" style={{ color: '#818CF8' }} />
+          <span>Área Admin</span>
+        </button>
+
+        {onOpenSettings && (
+          <button
+            type="button"
+            className="sidebar-link"
+            onClick={onOpenSettings}
+            id="nav-settings"
+          >
+            <span className="sidebar-link-icon">⚙️</span>
+            <span>Configurações API</span>
+          </button>
+        )}
       </nav>
 
       {/* Neon Live Status Indicator */}
