@@ -215,27 +215,41 @@ export async function ensureNutricionistaExists(
   }
 }
 
+// Helper para remover pacientes duplicados da lista
+function deduplicatePacientes(pacientes: Paciente[]): Paciente[] {
+  const seen = new Set<string>();
+  const result: Paciente[] = [];
+  for (const p of pacientes) {
+    const key = (p.email || p.nome).toLowerCase().trim();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(p);
+    }
+  }
+  return result;
+}
+
 // Fetch all pacientes for a specific nutricionista directly from Neon DB PostgreSQL
 export async function getPacientes(nutricionistaId: string): Promise<Paciente[]> {
   try {
     await ensureNutricionistaExists(nutricionistaId);
     const rows = await sql`
-      SELECT * FROM pacientes 
+      SELECT DISTINCT ON (LOWER(TRIM(nome))) * FROM pacientes 
       WHERE nutricionista_id = ${nutricionistaId}::uuid
-      ORDER BY created_at DESC
+      ORDER BY LOWER(TRIM(nome)), created_at DESC
     `;
 
     if (!rows || rows.length === 0) {
       await seedInitialDataToNeonDB(nutricionistaId);
       const reQuery = await sql`
-        SELECT * FROM pacientes 
+        SELECT DISTINCT ON (LOWER(TRIM(nome))) * FROM pacientes 
         WHERE nutricionista_id = ${nutricionistaId}::uuid
-        ORDER BY created_at DESC
+        ORDER BY LOWER(TRIM(nome)), created_at DESC
       `;
-      return (reQuery || []).map(mapPacienteFromRow);
+      return deduplicatePacientes((reQuery || []).map(mapPacienteFromRow));
     }
 
-    return rows.map(mapPacienteFromRow);
+    return deduplicatePacientes(rows.map(mapPacienteFromRow));
   } catch (err) {
     console.error('Erro ao buscar pacientes no Neon DB:', err);
     return [];
@@ -246,6 +260,13 @@ export async function getPacientes(nutricionistaId: string): Promise<Paciente[]>
 async function seedInitialDataToNeonDB(nutricionistaId: string) {
   try {
     await ensureNutricionistaExists(nutricionistaId);
+    
+    // Verifica se já existem pacientes cadastrados para este nutricionista ou no banco global
+    const existing = await sql`SELECT COUNT(*)::int as count FROM pacientes WHERE nutricionista_id = ${nutricionistaId}::uuid;`;
+    if (existing && existing[0] && existing[0].count > 0) {
+      return; // Já existem pacientes, não semear novamente
+    }
+
     const now = new Date();
     const daysAgo = (days: number) => {
       const d = new Date(now);
@@ -264,7 +285,7 @@ async function seedInitialDataToNeonDB(nutricionistaId: string) {
     const p3Id = crypto.randomUUID();
     const p4Id = crypto.randomUUID();
 
-    // Insert Patients into Neon DB
+    // Inserir Pacientes no Neon DB sem duplicar e-mails existentes
     await sql`
       INSERT INTO pacientes (id, nutricionista_id, nome, email, whatsapp, peso_inicial, altura, objetivos, created_at)
       VALUES 
@@ -272,9 +293,10 @@ async function seedInitialDataToNeonDB(nutricionistaId: string) {
         (${p2Id}, ${nutricionistaId}, 'Camila Ferreira', 'camila.ferreira@email.com', '(11) 91234-5678', 62.0, 1.65, ARRAY['Reeducação Alimentar'], ${daysAgo(60)}),
         (${p3Id}, ${nutricionistaId}, 'Lucas Mendes', 'lucas.mendes@email.com', '(21) 99887-7665', 85.0, 1.80, ARRAY['Hipertrofia'], ${daysAgo(10)}),
         (${p4Id}, ${nutricionistaId}, 'Mariana Lima', 'mariana.lima@email.com', '(31) 97766-5544', 58.0, 1.60, ARRAY['Saúde & Disposição'], ${daysAgo(5)})
+      ON CONFLICT DO NOTHING;
     `;
 
-    // Insert Consultas into Neon DB
+    // Inserir Consultas no Neon DB
     await sql`
       INSERT INTO consultas (id, paciente_id, data_consulta, peso, observacoes, proximo_retorno, created_at)
       VALUES
@@ -282,6 +304,7 @@ async function seedInitialDataToNeonDB(nutricionistaId: string) {
         (${crypto.randomUUID()}, ${p2Id}, ${daysAgo(45)}, 62.0, 'Plano alimentar entregue.', NULL, ${daysAgo(45)}),
         (${crypto.randomUUID()}, ${p3Id}, ${daysAgo(2)}, 84.2, 'Evolução positiva no treino.', ${daysFuture(25)}, ${daysAgo(2)}),
         (${crypto.randomUUID()}, ${p4Id}, ${daysAgo(1)}, 57.8, 'Ajuste no consumo de água.', ${daysFuture(30)}, ${daysAgo(1)})
+      ON CONFLICT DO NOTHING;
     `;
   } catch (err) {
     console.error('Erro ao semear dados iniciais no Neon DB:', err);

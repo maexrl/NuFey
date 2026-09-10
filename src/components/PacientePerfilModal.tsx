@@ -430,8 +430,7 @@ export const PacientePerfilModal: React.FC<PacientePerfilModalProps> = ({
     setPlanoErrorMsg('');
     setPlanoSuccessMsg('');
 
-    try {
-      const dadosPacienteFormatados = `
+    const dadosPacienteFormatados = `
 Nome: ${nomeTexto || paciente.nome}
 Idade: ${calcularIdade(dataNascTexto) ?? 'Não informada'}
 Sexo: ${sexoTexto || 'Não informado'}
@@ -451,15 +450,26 @@ Atividade física: ${atividadeFisicaCheck ? `Sim (${atividadeFisicaDescTexto || 
 Observações complementares: ${observacoesTexto || 'Nenhuma'}
 `.trim();
 
+    try {
+
       const pacienteData = {
         nome: nomeTexto || paciente.nome,
         objetivos: objetivosTexto ? [objetivosTexto] : paciente.objetivos,
-        objetivo_texto: objetivosTexto,
+        objetivo_texto: objetivosTexto || paciente.objetivo_texto,
         restricoes_alimentares: restricoesTexto ? [restricoesTexto] : paciente.restricoes_alimentares,
         alergias: alergiasTexto ? [alergiasTexto] : paciente.alergias,
         patologias: patologiasTexto ? [patologiasTexto] : paciente.patologias,
         peso_inicial: parseDecimal(pesoTexto) || paciente.peso_inicial,
         altura: parseDecimal(alturaTexto) || paciente.altura,
+        medicamentos: medicamentosTexto || paciente.medicamentos,
+        suplementos: suplementosTexto || paciente.suplementos,
+        refeicoes_por_dia: refeicoesPorDiaTexto || paciente.refeicoes_por_dia || 5,
+        horario_acorda: horarioAcordaTexto || paciente.horario_acorda || '07:00',
+        horario_dorme: horarioDormeTexto || paciente.horario_dorme || '23:00',
+        litros_agua: litrosAguaTexto || paciente.litros_agua || 2.5,
+        atividade_fisica: atividadeFisicaCheck,
+        atividade_fisica_descricao: atividadeFisicaDescTexto || paciente.atividade_fisica_descricao,
+        observacoes: observacoesTexto || paciente.observacoes,
         dadosPaciente: dadosPacienteFormatados,
       };
 
@@ -492,7 +502,7 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
       const tituloIa = `Plano Alimentar Personalizado IA — ${nomeTexto || paciente.nome} (${new Date().toLocaleDateString('pt-BR')})`;
       setTituloPlanoEmEdicao(tituloIa);
       setDiaAtivoEdicao(0);
-      setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso pela API Gemini do Google para ${nomeTexto || paciente.nome}! Revise, ajuste os alimentos ou altere o status.`);
+      setPlanoSuccessMsg(`✨ Plano alimentar gerado com sucesso por IA para ${nomeTexto || paciente.nome}! Revise os horários, porções e alimentos ajustados à anamnese.`);
 
       if (user && paciente) {
         try {
@@ -514,10 +524,22 @@ Observações complementares: ${observacoesTexto || 'Nenhuma'}
       const pacienteData = {
         nome: nomeTexto || paciente.nome,
         objetivos: objetivosTexto ? [objetivosTexto] : paciente.objetivos,
-        objetivo_texto: objetivosTexto,
+        objetivo_texto: objetivosTexto || paciente.objetivo_texto,
         restricoes_alimentares: restricoesTexto ? [restricoesTexto] : paciente.restricoes_alimentares,
         alergias: alergiasTexto ? [alergiasTexto] : paciente.alergias,
         patologias: patologiasTexto ? [patologiasTexto] : paciente.patologias,
+        peso_inicial: parseDecimal(pesoTexto) || paciente.peso_inicial,
+        altura: parseDecimal(alturaTexto) || paciente.altura,
+        medicamentos: medicamentosTexto || paciente.medicamentos,
+        suplementos: suplementosTexto || paciente.suplementos,
+        refeicoes_por_dia: refeicoesPorDiaTexto || paciente.refeicoes_por_dia || 5,
+        horario_acorda: horarioAcordaTexto || paciente.horario_acorda || '07:00',
+        horario_dorme: horarioDormeTexto || paciente.horario_dorme || '23:00',
+        litros_agua: litrosAguaTexto || paciente.litros_agua || 2.5,
+        atividade_fisica: atividadeFisicaCheck,
+        atividade_fisica_descricao: atividadeFisicaDescTexto || paciente.atividade_fisica_descricao,
+        observacoes: observacoesTexto || paciente.observacoes,
+        dadosPaciente: dadosPacienteFormatados,
       };
       const fallbackPlan = generateLocalFallbackMealPlan(pacienteData);
       setPlanoEmEdicao(fallbackPlan);

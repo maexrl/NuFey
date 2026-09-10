@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, AlertTriangle, ChevronRight, UserX, RefreshCw, CheckCircle2, MessageCircle, Settings, User, ShieldCheck } from 'lucide-react';
+import { Users, Calendar, AlertTriangle, ChevronRight, UserX, RefreshCw, CheckCircle2, MessageCircle, User, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar } from './Sidebar';
 import { PacientesView } from './PacientesView';
@@ -67,7 +67,6 @@ export const Dashboard: React.FC = () => {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         totalPacientesCount={metrics.totalPacientesAtivos}
-        onOpenSettings={() => setShowSettingsModal(true)}
       />
 
       {/* Área Principal de Conteúdo */}
@@ -116,15 +115,6 @@ export const Dashboard: React.FC = () => {
                 >
                   <User className="w-4 h-4" />
                   <span>Modo Cliente 👤</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowSettingsModal(true)}
-                  title="Configurar Gemini API"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>Configurações Gemini</span>
                 </button>
                 <button
                   type="button"
